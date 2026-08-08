@@ -1,333 +1,160 @@
 import 'package:flutter/material.dart';
-import '../data/mock_store.dart';
-import '../theme/app_theme.dart';
-import '../theme/responsive.dart';
+import 'package:flutter/foundation.dart';
+import '../api_service.dart';
+import 'login_screen.dart';
 
-class ProfileScreen extends StatelessWidget {
+const _kPrimary = Color(0xFFF06B26);
+
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
-  static const _appVersion = '1.0.0';
-  static const _userAgent = 'Mozilla/5.0';
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
 
-  Future<void> _confirm(BuildContext context, String title, String body,
-      String action, VoidCallback onOk) async {
-    final ok = await showDialog<bool>(
+class _ProfileScreenState extends State<ProfileScreen> {
+  Map<String, dynamic>? _user;
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final user = await ApiService.getUser();
+    setState(() {
+      _user = user;
+      _loading = false;
+    });
+  }
+
+  Future<void> _signOut() async {
+    final confirm = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(title),
-        content: Text(body),
+      builder: (ctx) => AlertDialog(
+        title: const Text('Sign Out'),
+        content: const Text('Are you sure you want to sign out?'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: const Text('Cancel')),
-          TextButton(
-              style: TextButton.styleFrom(foregroundColor: AppColors.fail),
-              onPressed: () => Navigator.of(context).pop(true),
-              child: Text(action)),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sign Out', style: TextStyle(color: Colors.red))),
         ],
       ),
     );
-    if (ok == true) onOk();
+    if (confirm != true) return;
+    await ApiService.clearToken();
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final store = MockStore.instance;
     return Scaffold(
-      backgroundColor: AppColors.foam,
-      body: SafeArea(
-        child: ConstrainedContent(
-          child: ListView(
-            padding: EdgeInsets.symmetric(
-                horizontal: Responsive.pagePad(context)),
-            children: [
-              const SizedBox(height: 14),
-              _PageHeader(),
-              const SizedBox(height: 20),
-
-              _SectionCard(
-                icon: Icons.person_outline,
-                title: 'Inspector Profile',
-                child: Row(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: AppColors.line,
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: const Icon(Icons.person,
-                          size: 32, color: AppColors.navy),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text('${store.inspectorName} Poojary',
-                              style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800)),
-                          const SizedBox(height: 2),
-                          const Text('ramyapoojary871@gmail.com',
-                              style: TextStyle(
-                                  fontSize: 13,
-                                  color: AppColors.inkSoft)),
-                          const SizedBox(height: 2),
-                          const Text('Inspector',
-                              style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppColors.inkSoft)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              _SectionCard(
-                icon: Icons.vpn_key_outlined,
-                title: 'Security',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                        'Change your account password. Requires internet connection.',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.inkSoft,
-                            height: 1.4)),
-                    const SizedBox(height: 14),
-                    OutlinedButton(
-                      onPressed: () =>
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Opens change-password flow (mock)'))),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.ink,
-                        side: const BorderSide(color: AppColors.line),
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        textStyle: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      child: const Text('Change password'),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              _SectionCard(
-                icon: Icons.smartphone_outlined,
-                title: 'Device Info',
-                child: Column(
-                  children: [
-                    _kv('User Agent', _userAgent),
-                    const SizedBox(height: 8),
-                    _kv('Online', 'Yes'),
-                    const SizedBox(height: 8),
-                    _kv('App Version', _appVersion),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              _SectionCard(
-                icon: Icons.storage_outlined,
-                title: 'Offline Storage',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Cached data for offline use.',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.inkSoft,
-                            height: 1.4)),
-                    const SizedBox(height: 14),
-                    ElevatedButton.icon(
-                      onPressed: () => _confirm(
-                        context,
-                        'Clear local cache?',
-                        'This removes downloaded assignments and cached templates from this device. Unsynced drafts will not be deleted.',
-                        'Clear',
-                            () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Local cache cleared'))),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.fail,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        textStyle: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Clear Local Cache'),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 16),
-              _SectionCard(
-                icon: Icons.delete_outline,
-                title: 'Dev: Wipe Data',
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                        'Remove all test data and reset IDs. Auth (users, sessions) is preserved. Only available on dev.',
-                        style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.inkSoft,
-                            height: 1.4)),
-                    const SizedBox(height: 14),
-                    ElevatedButton.icon(
-                      onPressed: () => _confirm(
-                        context,
-                        'Wipe dev data?',
-                        'This removes all test data and resets IDs. Auth is preserved.',
-                        'Wipe',
-                            () => ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Dev data wiped'))),
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.fail,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(0, 44),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10)),
-                        textStyle: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      icon: const Icon(Icons.delete_outline, size: 18),
-                      label: const Text('Wipe Dev Data'),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-              ElevatedButton.icon(
-                onPressed: () => _confirm(
-                  context,
-                  'Sign out?',
-                  'You\'ll need internet to sign back in.',
-                  'Sign out',
-                      () => Navigator.of(context).popUntil((r) => r.isFirst),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.fail,
-                  foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  textStyle: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800),
-                ),
-                icon: const Icon(Icons.logout),
-                label: const Text('Sign Out'),
-              ),
-              const SizedBox(height: 16),
-            ],
+      backgroundColor: const Color(0xFFF9FAFB),
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.of(context).maybePop()),
+        title: Row(children: [
+          Container(width: 32, height: 32, decoration: BoxDecoration(color: _kPrimary, borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.directions_boat, color: Colors.white, size: 20)),
+          const SizedBox(width: 8),
+          const Text('Profile', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700, fontSize: 16)),
+        ]),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: _kPrimary))
+          : SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 700),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Inspector Profile
+                _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: const [Icon(Icons.person_outline, color: Colors.black, size: 20), SizedBox(width: 8), Text('Inspector Profile', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black))]),
+                  const SizedBox(height: 16),
+                  Row(children: [
+                    Container(width: 56, height: 56, decoration: const BoxDecoration(color: Color(0xFFE5E7EB), shape: BoxShape.circle), child: const Icon(Icons.person, color: Color(0xFF6B7280), size: 28)),
+                    const SizedBox(width: 14),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(_user?['name'] ?? 'Unknown', style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: Colors.black)),
+                      const SizedBox(height: 2),
+                      Text(_user?['email'] ?? '', style: const TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+                      const SizedBox(height: 4),
+                      Text((_user?['role'] ?? 'inspector').toString().replaceAll('_', ' '), style: const TextStyle(fontSize: 12, color: Color(0xFF9CA3AF))),
+                    ])),
+                  ]),
+                ])),
+                const SizedBox(height: 16),
+                // Security
+                _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: const [Icon(Icons.key_outlined, color: Colors.black, size: 20), SizedBox(width: 8), Text('Security', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black))]),
+                  const SizedBox(height: 6),
+                  const Text('Change your account password. Requires internet connection.', style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+                  const SizedBox(height: 14),
+                  OutlinedButton(
+                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Password change coming soon'))),
+                    style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14), side: const BorderSide(color: Color(0xFFE5E7EB)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                    child: const Text('Change password', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700, fontSize: 14)),
+                  ),
+                ])),
+                const SizedBox(height: 16),
+                // Device Info
+                _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: const [Icon(Icons.smartphone_outlined, color: Colors.black, size: 20), SizedBox(width: 8), Text('Device Info', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black))]),
+                  const SizedBox(height: 14),
+                  _kvRow('User Agent', kIsWeb ? 'Mozilla/5.0' : 'Flutter App'),
+                  const SizedBox(height: 10),
+                  _kvRow('Online', 'Yes'),
+                ])),
+                const SizedBox(height: 16),
+                // Offline Storage
+                _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: const [Icon(Icons.storage_outlined, color: Colors.black, size: 20), SizedBox(width: 8), Text('Offline Storage', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Colors.black))]),
+                  const SizedBox(height: 6),
+                  const Text('Cached data for offline use.', style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+                  const SizedBox(height: 14),
+                  SizedBox(width: double.infinity, child: ElevatedButton(
+                    onPressed: () async {
+                      await ApiService.clearToken();
+                      if (!mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Offline cache cleared')));
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
+                    child: const Text('Clear offline cache', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                  )),
+                ])),
+                const SizedBox(height: 16),
+                // Sign Out
+                SizedBox(width: double.infinity, child: ElevatedButton.icon(
+                  onPressed: _signOut,
+                  icon: const Icon(Icons.logout, color: Colors.white),
+                  label: const Text('Sign Out', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFEF4444), minimumSize: const Size(0, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)), elevation: 0),
+                )),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _kv(String label, String value) {
-    return Row(
-      children: [
-        Expanded(
-          child: Text(label,
-              style: const TextStyle(
-                  fontSize: 13, color: AppColors.inkSoft)),
-        ),
-        Text(value,
-            style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.ink,
-                fontWeight: FontWeight.w600)),
-      ],
-    );
-  }
-}
+  Widget _card({required Widget child}) => Container(
+    padding: const EdgeInsets.all(20),
+    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)]),
+    child: child,
+  );
 
-class _PageHeader extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.ink),
-          onPressed: () => Navigator.of(context).maybePop(),
-          padding: EdgeInsets.zero,
-          constraints: const BoxConstraints(),
-        ),
-        const SizedBox(width: 8),
-        Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(
-            color: AppColors.signal,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.anchor, color: Colors.white, size: 24),
-        ),
-        const SizedBox(width: 12),
-        const Text('Profile',
-            style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: AppColors.ink)),
-      ],
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final Widget child;
-  const _SectionCard(
-      {required this.icon, required this.title, required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 20, color: AppColors.ink),
-              const SizedBox(width: 8),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w800)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
-  }
+  Widget _kvRow(String k, String v) => Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+    Text(k, style: const TextStyle(fontSize: 14, color: Color(0xFF6B7280))),
+    Text(v, style: const TextStyle(fontSize: 14, color: Colors.black, fontWeight: FontWeight.w600)),
+  ]);
 }
