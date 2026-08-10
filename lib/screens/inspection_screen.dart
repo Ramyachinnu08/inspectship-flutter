@@ -1,7 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import '../models/models.dart';
+import '../api_service.dart';
+import 'inspection_session.dart';
 import 'signoff_screen.dart';
 import 'photo_editor_screen.dart';
+import 'dart:convert';
+import 'package:image_picker/image_picker.dart';
 
 class InspectionScreen extends StatefulWidget {
   final Assignment assignment;
@@ -12,6 +18,12 @@ class InspectionScreen extends StatefulWidget {
 }
 
 class _InspectionScreenState extends State<InspectionScreen> {
+  String _coverImage = '';
+  final Map<String, TextEditingController> _commentControllers = {};
+
+  TextEditingController _commentCtrl(Question q) {
+    return _commentControllers.putIfAbsent(q.id, () => TextEditingController(text: q.comment));
+  }
   String _leftTab = 'sections';
   String? _activeSectionId;
   String? _activeQuestionId;
@@ -30,6 +42,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
   @override
   void initState() {
     super.initState();
+    _coverImage = widget.assignment.coverImage;
     if (widget.assignment.sections.isNotEmpty) {
       _activeSectionId = widget.assignment.sections.first.id;
       _expanded[_activeSectionId!] = true;
@@ -78,11 +91,74 @@ class _InspectionScreenState extends State<InspectionScreen> {
   bool _isGeneralInfo(Section s) =>
       s.title.toLowerCase().contains('general information');
 
-  void _addMockPhoto(Question q) {
+  Future<void> _pickCoverImage() async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(source: ImageSource.gallery, maxWidth: 1400, imageQuality: 65);
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    setState(() {
+      _coverImage = 'data:image/jpeg;base64,${base64Encode(bytes)}';
+      widget.assignment.coverImage = _coverImage;
+    });
+  }
+
+  void _openCoverDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setD) => AlertDialog(
+          title: const Text('Vessel Image'),
+          content: SizedBox(
+            width: 320,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('This image appears as the background on the report cover page.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                const SizedBox(height: 12),
+                if (_coverImage.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: _coverImage.startsWith('data:image')
+                        ? Image.memory(base64Decode(_coverImage.split(',').last), height: 140, width: double.infinity, fit: BoxFit.cover)
+                        : Image.network(_coverImage, height: 140, width: double.infinity, fit: BoxFit.cover),
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            if (_coverImage.isNotEmpty)
+              TextButton(
+                onPressed: () { setState(() { _coverImage = ''; widget.assignment.coverImage = ''; }); Navigator.pop(ctx); },
+                child: const Text('Remove', style: TextStyle(color: Color(0xFFEF4444))),
+              ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
+            ElevatedButton(
+              onPressed: () async { await _pickCoverImage(); setD(() {}); },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFFF6B00), foregroundColor: Colors.white),
+              child: Text(_coverImage.isEmpty ? 'Upload' : 'Change'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _addMockPhoto(Question q) async {
+    final picker = ImagePicker();
+    final XFile? picked = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1000,
+      imageQuality: 60,
+    );
+    if (picked == null) return;
+    final bytes = await picked.readAsBytes();
+    final base64Str = base64Encode(bytes);
     setState(() {
       q.photos.add(EvidencePhoto(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        url: 'https://picsum.photos/400/300?random=${q.photos.length + 1}',
+        url: 'data:image/jpeg;base64,$base64Str',
       ));
     });
   }
@@ -112,6 +188,44 @@ class _InspectionScreenState extends State<InspectionScreen> {
     );
   }
 
+  @override
+  void dispose() {
+    for (final ctrl in _commentControllers.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
+
+  Future<void> _saveAndExit() async {
+    final inspectionId = InspectionSession.currentInspectionId;
+    if (inspectionId != null) {
+      final answers = <String, dynamic>{};
+      for (final s in widget.assignment.sections) {
+        for (final q in s.questions) {
+          if (q.answer == null && q.comment.isEmpty && q.photos.isEmpty) continue;
+          String? ans;
+          if (q.answer != null) {
+            switch (q.answer!) {
+              case AnswerValue.pass: ans = 'yes'; break;
+              case AnswerValue.fail: ans = 'no'; break;
+              case AnswerValue.na: ans = 'na'; break;
+              case AnswerValue.nv: ans = 'nv'; break;
+            }
+          }
+          answers[q.id] = {
+            'answer': ans,
+            'comment': q.comment,
+            'question_text': q.text,
+            'photos': q.photos.map((p) => p.url).toList(),
+          };
+        }
+      }
+      answers['__cover_image__'] = {'url': _coverImage};
+      await ApiService.saveAnswers(inspectionId, answers);
+    }
+    if (mounted) Navigator.of(context).maybePop();
+  }
+
   Widget _topBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -125,7 +239,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
           children: [
             IconButton(
               icon: const Icon(Icons.arrow_back, color: Color(0xFF555555)),
-              onPressed: () => Navigator.of(context).maybePop(),
+              onPressed: _saveAndExit,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             ),
@@ -144,6 +258,18 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF6B7280))),
             const SizedBox(width: 12),
+            OutlinedButton.icon(
+              onPressed: _openCoverDialog,
+              icon: Icon(Icons.image_outlined, size: 16,
+                  color: _coverImage.isEmpty ? const Color(0xFF6B7280) : const Color(0xFFFF6B00)),
+              label: Text(_coverImage.isEmpty ? 'Vessel Image' : 'Vessel Image ✓',
+                  style: TextStyle(fontSize: 12, color: _coverImage.isEmpty ? const Color(0xFF6B7280) : const Color(0xFFFF6B00))),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
+                side: BorderSide(color: _coverImage.isEmpty ? const Color(0xFFDDDDDD) : const Color(0xFFFF6B00)),
+              ),
+            ),
+            const SizedBox(width: 8),
             ElevatedButton(
               onPressed: _goToSignOff,
               style: ElevatedButton.styleFrom(
@@ -498,9 +624,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
             Expanded(
               child: isEditing
                   ? TextField(
-                controller: TextEditingController(text: q.comment)
-                  ..selection = TextSelection.collapsed(
-                      offset: q.comment.length),
+                controller: _commentCtrl(q),
                 autofocus: true,
                 onChanged: (v) => q.comment = v,
                 onSubmitted: (_) => setState(() {
@@ -739,8 +863,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
               const SizedBox(height: 10),
               TextField(
                 maxLines: 4,
-                controller: TextEditingController(text: q.comment)
-                  ..selection = TextSelection.collapsed(offset: q.comment.length),
+                controller: _commentCtrl(q),
                 onChanged: (v) => q.comment = v,
                 decoration: InputDecoration(
                   filled: true,
@@ -872,17 +995,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
             child: Container(
               color: const Color(0xFFF3F4F6),
               alignment: Alignment.center,
-              child: photo.url.startsWith('http')
-                  ? Image.network(
-                photo.url,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const Icon(
-                    Icons.image_outlined,
-                    size: 40,
-                    color: Color(0xFF9CA3AF)),
-              )
-                  : const Icon(Icons.image_outlined,
-                  size: 40, color: Color(0xFF9CA3AF)),
+              child: photo.url.startsWith('data:image')
+                  ? Image.memory(base64Decode(photo.url.split(',').last), fit: BoxFit.cover, width: double.infinity,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 40, color: Color(0xFF9CA3AF)))
+                  : photo.url.startsWith('http')
+                  ? Image.network(photo.url, fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined, size: 40, color: Color(0xFF9CA3AF)))
+                  : const Icon(Icons.image_outlined, size: 40, color: Color(0xFF9CA3AF)),
             ),
           ),
           Container(

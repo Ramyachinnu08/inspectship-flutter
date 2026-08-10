@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
+import 'report_launcher.dart';
 
 class ReportsScreen extends StatefulWidget {
   const ReportsScreen({super.key});
@@ -180,11 +181,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
     }
     return InkWell(
       borderRadius: BorderRadius.circular(16),
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Open report for ${a['vessel']} — coming soon')),
-        );
-      },
+      onTap: () => ReportLauncher.open(context, Map<String, dynamic>.from(a)),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,

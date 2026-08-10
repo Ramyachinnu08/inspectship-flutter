@@ -136,4 +136,18 @@ class ApiService {
       return null;
     }
   }
+  // GET inspection detail (for report viewer)
+  static Future<Map<String, dynamic>?> getInspectionDetail(int assignmentId) async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/inspector/assignments/$assignmentId/inspection'),
+        headers: await _headers(),
+      );
+      final data = jsonDecode(res.body);
+      if (data['success'] == true) return data['data'];
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
 }

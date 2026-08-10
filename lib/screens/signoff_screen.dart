@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../data/mock_store.dart';
+import '../api_service.dart';
+import 'inspection_session.dart';
+
 
 class SignOffScreen extends StatefulWidget {
   final Assignment assignment;
@@ -75,19 +78,66 @@ class _SignOffScreenState extends State<SignOffScreen> {
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancel')),
           ElevatedButton(
-            onPressed: () {
+            onPressed: () async {
               widget.assignment.status = AssignmentStatus.submitted;
               widget.assignment.pendingSync = false;
               widget.assignment.masterSignName = _masterNameCtrl.text;
               widget.assignment.masterSigned = !_couldntObtainSig;
               widget.assignment.inspectorSigned = _inspectorStrokes.isNotEmpty;
-              Navigator.of(context).pop();
+              Navigator.of(context).pop(); // close dialog
+
+              // Submit to backend
+              final inspectionId = InspectionSession.currentInspectionId;
+              bool ok = false;
+              if (inspectionId != null) {
+                // build answers from the assignment model
+                final answers = <String, dynamic>{};
+                for (final s in widget.assignment.sections) {
+                  for (final q in s.questions) {
+                    if (q.answer == null) continue;
+                    String ans;
+                    switch (q.answer!) {
+                      case AnswerValue.pass: ans = 'yes'; break;
+                      case AnswerValue.fail: ans = 'no'; break;
+                      case AnswerValue.na: ans = 'na'; break;
+                      case AnswerValue.nv: ans = 'nv'; break;
+                    }
+                    final curKey = Question.keyFor(q.answer);
+                    if (curKey != 'none') {
+                      q.commentByAnswer[curKey] = q.comment;
+                      q.photosByAnswer[curKey] = List<EvidencePhoto>.from(q.photos);
+                    }
+                    final photosByAns = <String, List<String>>{};
+                    q.photosByAnswer.forEach((k, list) {
+                      photosByAns[k] = list.map((p) => p.url).toList();
+                    });
+                    answers[q.id] = {
+                      'answer': ans,
+                      'comment': q.comment,
+                      'question_text': q.text,
+                      'photos': q.photos.map((p) => p.url).toList(),
+                      'commentByAnswer': q.commentByAnswer,
+                      'photosByAnswer': photosByAns,
+                    };
+                  }
+                }
+                answers['__cover_image__'] = {'url': widget.assignment.coverImage};
+                await ApiService.saveAnswers(inspectionId, answers,
+                    masterName: _masterNameCtrl.text, masterEmail: _masterEmailCtrl.text);
+                final result = await ApiService.submitInspection(inspectionId);
+                ok = result != null;
+              }
+
+              if (!mounted) return;
+              // pop back to assignments list
               Navigator.of(context).pop();
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text('Inspection submitted ✅'),
-                    backgroundColor: Color(0xFF22C55E)),
+                SnackBar(
+                    content: Text(ok
+                        ? 'Inspection submitted ✅ Report created for admin review.'
+                        : 'Submitted locally, but backend sync failed. Please re-login and retry.'),
+                    backgroundColor: ok ? const Color(0xFF22C55E) : const Color(0xFFEF4444)),
               );
             },
             style: ElevatedButton.styleFrom(
@@ -153,17 +203,6 @@ class _SignOffScreenState extends State<SignOffScreen> {
                             letterSpacing: 1.2)),
                   ),
                   const Spacer(),
-                  Row(
-                    children: const [
-                      Text('MENU',
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600)),
-                      SizedBox(width: 8),
-                      Icon(Icons.menu, color: Colors.white, size: 18),
-                    ],
-                  ),
                 ],
               ),
             ),

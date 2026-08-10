@@ -24,6 +24,10 @@ class Question {
   int evidenceCount; // legacy - kept for backwards compat
   List<EvidencePhoto> photos;
 
+  // Per-answer storage: each answer option keeps its own comment + photos
+  Map<String, String> commentByAnswer;
+  Map<String, List<EvidencePhoto>> photosByAnswer;
+
   Question({
     required this.id,
     required this.text,
@@ -33,9 +37,24 @@ class Question {
     this.comment = '',
     this.evidenceCount = 0,
     List<EvidencePhoto>? photos,
-  }) : photos = photos ?? [];
+    Map<String, String>? commentByAnswer,
+    Map<String, List<EvidencePhoto>>? photosByAnswer,
+  })  : photos = photos ?? [],
+        commentByAnswer = commentByAnswer ?? {},
+        photosByAnswer = photosByAnswer ?? {};
 
   bool get isAnswered => answer != null;
+
+  // Key helper for the current answer
+  static String keyFor(AnswerValue? a) {
+    switch (a) {
+      case AnswerValue.pass: return 'yes';
+      case AnswerValue.fail: return 'no';
+      case AnswerValue.na: return 'na';
+      case AnswerValue.nv: return 'nv';
+      default: return 'none';
+    }
+  }
 }
 
 class Section {
@@ -70,6 +89,7 @@ class Assignment {
   bool masterSigned;
   bool inspectorSigned;
   bool pendingSync;
+  String coverImage;
 
   Assignment({
     required this.id,
@@ -85,6 +105,7 @@ class Assignment {
     this.masterSigned = false,
     this.inspectorSigned = false,
     this.pendingSync = false,
+    this.coverImage = '',
   });
 
   int get totalQuestions =>

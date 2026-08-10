@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
+import 'inspection_launcher.dart';
 
 class AssignmentsScreen extends StatefulWidget {
   const AssignmentsScreen({super.key});
@@ -234,7 +235,8 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
       statusFg = const Color(0xFF3730A3);
     }
 
-    final btnLabel = status == 'upcoming' ? 'Start' : (status == 'submitted' ? 'View' : 'Resume');
+    final bool isSubmitted = status == 'submitted';
+    final btnLabel = status == 'upcoming' ? 'Start' : (isSubmitted ? 'Submitted' : 'Resume');
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -305,45 +307,19 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
             width: 130,
             height: 44,
             child: ElevatedButton.icon(
-              onPressed: () {
-                final sections = a['template_sections'];
-                int questionCount = 0;
-                String templateName = (a['template'] ?? '—').toString();
-                if (sections is Map && sections['draftVersions'] is List) {
-                  for (final d in sections['draftVersions'] as List) {
-                    if (d is Map && d['status'] == 'Published' && d['structure'] is List) {
-                      questionCount = (d['structure'] as List).length;
-                      break;
-                    }
-                  }
-                }
-                showDialog(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text('$btnLabel Inspection'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Vessel: ${a['vessel']}'),
-                        Text('Template: $templateName'),
-                        Text('Questions: $questionCount'),
-                        const SizedBox(height: 12),
-                        const Text('Full inspection flow coming soon!',
-                            style: TextStyle(color: Color(0xFF6B7280), fontSize: 13)),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-                    ],
-                  ),
-                );
+              onPressed: isSubmitted
+                  ? null
+                  : () async {
+                await InspectionLauncher.open(context, Map<String, dynamic>.from(a));
+                _loadData();
               },
-              icon: const Icon(Icons.arrow_forward, size: 18),
+              icon: Icon(isSubmitted ? Icons.check_circle : Icons.arrow_forward, size: 18),
               label: Text(btnLabel),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1A2A5E),
+                backgroundColor: isSubmitted ? const Color(0xFF22C55E) : const Color(0xFF1A2A5E),
                 foregroundColor: Colors.white,
+                disabledBackgroundColor: const Color(0xFF22C55E),
+                disabledForegroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),

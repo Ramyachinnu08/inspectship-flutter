@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../utils/pdf_generator.dart';
@@ -49,6 +50,23 @@ class ReportViewerScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: _pageBg,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          try {
+            await ReportPdfGenerator.generateAndPrint(assignment);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('PDF error: $e')),
+              );
+            }
+          }
+        },
+        backgroundColor: _orange,
+        foregroundColor: Colors.white,
+        icon: const Icon(Icons.download),
+        label: const Text('Download PDF', style: TextStyle(fontWeight: FontWeight.w700)),
+      ),
       appBar: AppBar(
         backgroundColor: const Color(0xFF1A2A5E),
         foregroundColor: Colors.white,
@@ -158,6 +176,8 @@ class ReportViewerScreen extends StatelessWidget {
             idsOnly: true,
           ),
           const SizedBox(height: 8),
+          _EvidencePhotosPage(assignment: assignment),
+          const SizedBox(height: 8),
           _ContactUsPage(),
           const SizedBox(height: 24),
         ],
@@ -208,7 +228,6 @@ class _CoverPage extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            height: 180,
             width: double.infinity,
             color: const Color(0xFF1A2A5E),
             padding: const EdgeInsets.all(20),
@@ -225,6 +244,19 @@ class _CoverPage extends StatelessWidget {
                       letterSpacing: 1)),
             ),
           ),
+          if (a.coverImage.isNotEmpty)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFF1A2A5E),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: a.coverImage.startsWith('data:image')
+                    ? Image.memory(base64Decode(a.coverImage.split(',').last),
+                    width: double.infinity, fit: BoxFit.contain)
+                    : Image.network(a.coverImage, width: double.infinity, fit: BoxFit.contain),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
@@ -496,6 +528,126 @@ class _AnswerBlock extends StatelessWidget {
   }
 }
 
+class _EvidencePhotosPage extends StatelessWidget {
+  final Assignment assignment;
+  const _EvidencePhotosPage({required this.assignment});
+
+  @override
+  Widget build(BuildContext context) {
+    // Collect all photos from all questions (across all answer slots)
+    final List<_EvidenceItem> items = [];
+    for (final q in assignment.allQuestions) {
+      // active photos
+      for (final p in q.photos) {
+        items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption));
+      }
+      // per-answer photos
+      q.photosByAnswer.forEach((ansKey, list) {
+        for (final p in list) {
+          // avoid duplicating the active ones
+          final already = q.photos.any((ap) => ap.url == p.url);
+          if (!already) {
+            items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey));
+          }
+        }
+      });
+    }
+
+    return _Page(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('EVIDENCE PHOTOS',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+          const SizedBox(height: 4),
+          Container(height: 2, width: 60, color: const Color(0xFFFF6B00)),
+          const SizedBox(height: 16),
+          if (items.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 30),
+              child: Text('No evidence photos were captured for this inspection.',
+                  style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+            )
+          else
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: items.map((it) => _photoTile(it)).toList(),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _photoTile(_EvidenceItem it) {
+    Widget img;
+    if (it.url.startsWith('data:image')) {
+      img = Image.memory(base64Decode(it.url.split(',').last),
+          width: 300, fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox(width: 300, height: 200,
+              child: Icon(Icons.broken_image_outlined, size: 40, color: Color(0xFF9CA3AF))));
+    } else if (it.url.startsWith('http')) {
+      img = Image.network(it.url, width: 300, fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => const SizedBox(width: 300, height: 200,
+              child: Icon(Icons.image_outlined, size: 40, color: Color(0xFF9CA3AF))));
+    } else {
+      img = const SizedBox(width: 300, height: 200,
+          child: Icon(Icons.image_outlined, size: 40, color: Color(0xFF9CA3AF)));
+    }
+    return Container(
+      width: 300,
+      decoration: BoxDecoration(
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ClipRRect(
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+            child: img,
+          ),
+          Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Q ${it.questionId}',
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+                const SizedBox(height: 3),
+                Text(it.questionText,
+                    maxLines: 2, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                if (it.caption.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(it.caption,
+                      maxLines: 2, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF374151))),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EvidenceItem {
+  final String questionId;
+  final String questionText;
+  final String url;
+  final String caption;
+  final String? answerKey;
+  _EvidenceItem({
+    required this.questionId,
+    required this.questionText,
+    required this.url,
+    this.caption = '',
+    this.answerKey,
+  });
+}
+
 class _ContactUsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -599,4 +751,5 @@ class _ContactUsPage extends StatelessWidget {
       ),
     );
   }
+
 }

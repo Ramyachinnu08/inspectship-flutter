@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 class PhotoEditorScreen extends StatefulWidget {
   final String imageUrl;
@@ -21,6 +25,34 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
   double _brushSize = 3;
   final List<_Stroke> _strokes = [];
   final List<_Stroke> _redoStack = [];
+  final GlobalKey _boundaryKey = GlobalKey();
+  bool _capturing = false;
+  ui.Image? _decodedImage;
+  bool _imgLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImage();
+  }
+
+  Future<void> _loadImage() async {
+    try {
+      Uint8List? bytes;
+      if (widget.imageUrl.startsWith('data:image')) {
+        bytes = base64Decode(widget.imageUrl.split(',').last);
+      }
+      if (bytes != null) {
+        final codec = await ui.instantiateImageCodec(bytes);
+        final frame = await codec.getNextFrame();
+        if (mounted) setState(() { _decodedImage = frame.image; _imgLoading = false; });
+      } else {
+        if (mounted) setState(() => _imgLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _imgLoading = false);
+    }
+  }
 
   static const _colors = [
     Colors.black,
@@ -156,46 +188,65 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
           return GestureDetector(
             onPanStart: (d) => _startStroke(d.localPosition),
             onPanUpdate: (d) => _extendStroke(d.localPosition),
-            child: Container(
-              width: constraints.maxWidth,
-              height: constraints.maxHeight,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F1F1F),
-                border: Border.all(color: const Color(0xFF333333)),
-              ),
-              child: Stack(
-                children: [
-                  // Placeholder image
-                  Center(
-                    child: Container(
-                      color: const Color(0xFF2A2A2A),
-                      width: constraints.maxWidth * 0.8,
-                      height: constraints.maxHeight * 0.8,
-                      alignment: Alignment.center,
-                      child: const Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.image, size: 60, color: Color(0xFF6B7280)),
-                          SizedBox(height: 12),
-                          Text('Photo Preview',
-                              style: TextStyle(
-                                  fontSize: 14, color: Color(0xFF6B7280))),
-                        ],
-                      ),
+            child: RepaintBoundary(
+              key: _boundaryKey,
+              child: Container(
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F1F1F),
+                  border: Border.all(color: const Color(0xFF333333)),
+                ),
+                child: Stack(
+                  children: [
+                    // Actual image (drawn via painter for reliable capture)
+                    Positioned.fill(
+                      child: _imgLoading
+                          ? const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00)))
+                          : _decodedImage != null
+                          ? CustomPaint(painter: _ImagePainter(_decodedImage!), size: Size.infinite)
+                          : const Center(child: Icon(Icons.image, size: 60, color: Color(0xFF6B7280))),
                     ),
-                  ),
-                  // Strokes overlay
-                  CustomPaint(
-                    painter: _MarkupPainter(_strokes),
-                    size: Size.infinite,
-                  ),
-                ],
+                    // Strokes overlay
+                    CustomPaint(
+                      painter: _MarkupPainter(_strokes),
+                      size: Size.infinite,
+                    ),
+                  ],
+                ),
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _captureAndSave() async {
+    try {
+      setState(() => _capturing = true);
+      await Future.delayed(const Duration(milliseconds: 50));
+      final boundary = _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) {
+        widget.onSave(widget.imageUrl, widget.initialCaption);
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      final ByteData? byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) {
+        widget.onSave(widget.imageUrl, widget.initialCaption);
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+      final Uint8List pngBytes = byteData.buffer.asUint8List();
+      final b64 = base64Encode(pngBytes);
+      widget.onSave('data:image/png;base64,$b64', widget.initialCaption);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      widget.onSave(widget.imageUrl, widget.initialCaption);
+      if (mounted) Navigator.of(context).pop();
+    }
   }
 
   Widget _rightPanel() {
@@ -311,10 +362,7 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: () {
-                    widget.onSave(widget.imageUrl, widget.initialCaption);
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: _captureAndSave,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF22C55E),
                     foregroundColor: Colors.white,
@@ -341,6 +389,29 @@ class _PhotoEditorScreenState extends State<PhotoEditorScreen> {
       child: Icon(icon, color: Colors.white, size: 18),
     );
   }
+}
+
+class _ImagePainter extends CustomPainter {
+  final ui.Image image;
+  _ImagePainter(this.image);
+  @override
+  void paint(Canvas canvas, Size size) {
+    final imgW = image.width.toDouble();
+    final imgH = image.height.toDouble();
+    // contain fit
+    final scale = (size.width / imgW).clamp(0.0, double.infinity);
+    final scaleH = size.height / imgH;
+    final s = scale < scaleH ? scale : scaleH;
+    final drawW = imgW * s;
+    final drawH = imgH * s;
+    final dx = (size.width - drawW) / 2;
+    final dy = (size.height - drawH) / 2;
+    final src = Rect.fromLTWH(0, 0, imgW, imgH);
+    final dst = Rect.fromLTWH(dx, dy, drawW, drawH);
+    canvas.drawImageRect(image, src, dst, Paint());
+  }
+  @override
+  bool shouldRepaint(covariant _ImagePainter old) => old.image != image;
 }
 
 class _Stroke {
