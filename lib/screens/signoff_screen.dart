@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../data/mock_store.dart';
 import '../api_service.dart';
+import '../offline_store.dart';
 import 'inspection_session.dart';
 
 
@@ -122,22 +123,57 @@ class _SignOffScreenState extends State<SignOffScreen> {
                   }
                 }
                 answers['__cover_image__'] = {'url': widget.assignment.coverImage};
-                await ApiService.saveAnswers(inspectionId, answers,
-                    masterName: _masterNameCtrl.text, masterEmail: _masterEmailCtrl.text);
-                final result = await ApiService.submitInspection(inspectionId);
-                ok = result != null;
+
+                final assignmentKey = widget.assignment.id.toString();
+                final online = await OfflineStore.instance.isOnline();
+
+                if (online) {
+                  await ApiService.saveAnswers(inspectionId, answers,
+                      masterName: _masterNameCtrl.text, masterEmail: _masterEmailCtrl.text);
+                  final result = await ApiService.submitInspection(inspectionId);
+                  ok = result != null;
+                  // save local copy as submitted
+                  await OfflineStore.instance.saveLocalInspection(
+                    assignmentKey,
+                    answers: answers,
+                    coverImage: widget.assignment.coverImage,
+                    localStatus: ok ? 'submitted' : 'in_progress',
+                    pendingSync: !ok,
+                    inspectionId: inspectionId,
+                    masterName: _masterNameCtrl.text,
+                    masterEmail: _masterEmailCtrl.text,
+                  );
+                  if (!ok) await OfflineStore.instance.queueForSync(assignmentKey);
+                } else {
+                  // OFFLINE: save locally + queue for sync
+                  await OfflineStore.instance.saveLocalInspection(
+                    assignmentKey,
+                    answers: answers,
+                    coverImage: widget.assignment.coverImage,
+                    localStatus: 'submitted',
+                    pendingSync: true,
+                    inspectionId: inspectionId,
+                    masterName: _masterNameCtrl.text,
+                    masterEmail: _masterEmailCtrl.text,
+                  );
+                  await OfflineStore.instance.queueForSync(assignmentKey);
+                  ok = true; // saved offline successfully
+                }
               }
 
               if (!mounted) return;
+              final wasOnline = await OfflineStore.instance.isOnline();
               // pop back to assignments list
               Navigator.of(context).pop();
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                    content: Text(ok
+                    content: Text(!wasOnline
+                        ? 'Saved offline ✅ Will sync when back online (Drafts → Sync Now).'
+                        : ok
                         ? 'Inspection submitted ✅ Report created for admin review.'
-                        : 'Submitted locally, but backend sync failed. Please re-login and retry.'),
-                    backgroundColor: ok ? const Color(0xFF22C55E) : const Color(0xFFEF4444)),
+                        : 'Saved offline. Sync from Drafts when online.'),
+                    backgroundColor: ok ? const Color(0xFF22C55E) : const Color(0xFFF59E0B)),
               );
             },
             style: ElevatedButton.styleFrom(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
+import '../offline_store.dart';
 import 'inspection_launcher.dart';
 
 class AssignmentsScreen extends StatefulWidget {
@@ -15,23 +16,51 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   bool _howToOpen = false;
   String _filter = 'All';
   String _inspectorName = '';
+  bool _online = true;
+  int _pendingSync = 0;
+  bool _syncing = false;
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    OfflineStore.instance.onlineStream().listen((online) {
+      if (mounted) setState(() => _online = online);
+    });
   }
 
   Future<void> _loadData() async {
     setState(() => _loading = true);
     final user = await ApiService.getUser();
     _inspectorName = (user?['name'] ?? 'Ramya').toString().split(' ').first;
-    final data = await ApiService.getMyAssignments();
+    _online = await OfflineStore.instance.isOnline();
+    final data = await OfflineStore.instance.getAssignments();
     if (!mounted) return;
     setState(() {
       _assignments = data;
+      _pendingSync = OfflineStore.instance.pendingSyncCount;
       _loading = false;
     });
+  }
+
+  Future<void> _syncNow() async {
+    if (_syncing) return;
+    if (!await OfflineStore.instance.isOnline()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No internet connection. Connect to sync.')),
+        );
+      }
+      return;
+    }
+    setState(() => _syncing = true);
+    final result = await OfflineStore.instance.syncNow();
+    if (!mounted) return;
+    setState(() => _syncing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result['message']?.toString() ?? 'Sync complete')),
+    );
+    _loadData();
   }
 
   List<dynamic> get _filteredAssignments {
@@ -118,15 +147,15 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A2A5E),
+            color: _online ? const Color(0xFF1A2A5E) : const Color(0xFF9CA3AF),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.wifi, color: Colors.white, size: 12),
-              SizedBox(width: 4),
-              Text('Online', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
+              Icon(_online ? Icons.wifi : Icons.wifi_off, color: Colors.white, size: 12),
+              const SizedBox(width: 4),
+              Text(_online ? 'Online' : 'Offline', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700)),
             ],
           ),
         ),

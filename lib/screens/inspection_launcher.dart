@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../api_service.dart';
+import '../offline_store.dart';
 import 'inspection_screen.dart';
 import 'inspection_session.dart';
 
@@ -10,39 +11,55 @@ import 'inspection_session.dart';
 class InspectionLauncher {
   /// Call this from the Start/Resume button.
   static Future<void> open(BuildContext context, Map<String, dynamic> a) async {
-    // 1) Start / resume on backend to get inspection_id + saved answers
     final backendId = a['id'];
     final int assignmentId =
     backendId is int ? backendId : int.tryParse('$backendId') ?? 0;
+    final String assignmentKey = assignmentId.toString();
 
-    // Show a brief loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00))),
-    );
+    final bool online = await OfflineStore.instance.isOnline();
 
-    final startData = await ApiService.startInspection(assignmentId);
+    dynamic savedAnswers;
+    int? inspectionId;
 
-    if (context.mounted) Navigator.pop(context); // close loader
+    if (online) {
+      // Show a brief loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => const Center(child: CircularProgressIndicator(color: Color(0xFFFF6B00))),
+      );
 
-    if (startData == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not start inspection. Please sign out and sign in again, then retry.')),
-        );
+      final startData = await ApiService.startInspection(assignmentId);
+
+      if (context.mounted) Navigator.pop(context); // close loader
+
+      if (startData != null) {
+        inspectionId = startData['inspection_id'];
+        savedAnswers = startData['answers'];
+        // merge any locally-saved (offline) answers over backend answers
+        final local = OfflineStore.instance.getLocalInspection(assignmentKey);
+        if (local != null && local['answers'] != null) {
+          savedAnswers = local['answers'];
+        }
+      } else {
+        // backend failed → fall back to local
+        final local = OfflineStore.instance.getLocalInspection(assignmentKey);
+        savedAnswers = local?['answers'];
+        inspectionId = local?['inspection_id'];
       }
-      return;
+    } else {
+      // OFFLINE: load any locally saved answers
+      final local = OfflineStore.instance.getLocalInspection(assignmentKey);
+      savedAnswers = local?['answers'];
+      inspectionId = local?['inspection_id'];
     }
 
-    final int? inspectionId = startData['inspection_id'];
-    final savedAnswers = startData['answers'];
     InspectionSession.currentInspectionId = inspectionId;
 
-    // 2) Build the Assignment model from real template + saved answers
+    // Build the Assignment model from real template + saved answers
     final assignment = _buildAssignment(a, savedAnswers);
 
-    // 3) Open the ORIGINAL inspection screen
+    // Open the ORIGINAL inspection screen
     if (!context.mounted) return;
     await Navigator.push(
       context,
@@ -51,9 +68,21 @@ class InspectionLauncher {
       ),
     );
 
-    // 4) When the inspector returns, save the current answers to backend
-    if (inspectionId != null) {
-      final answersMap = _extractAnswers(assignment);
+    // When the inspector returns, save answers (online → backend, always → local cache)
+    final answersMap = _extractAnswers(assignment);
+    final nowOnline = await OfflineStore.instance.isOnline();
+
+    // always keep a local copy so drafts survive offline
+    await OfflineStore.instance.saveLocalInspection(
+      assignmentKey,
+      answers: answersMap,
+      coverImage: assignment.coverImage,
+      localStatus: 'in_progress',
+      pendingSync: !nowOnline,
+      inspectionId: inspectionId,
+    );
+
+    if (nowOnline && inspectionId != null) {
       await ApiService.saveAnswers(inspectionId, answersMap);
     }
   }

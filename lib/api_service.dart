@@ -68,6 +68,58 @@ class ApiService {
     }
   }
 
+  // CHANGE PASSWORD
+  static Future<Map<String, dynamic>> changePassword(String oldPassword, String newPassword) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/change-password'),
+        headers: await _headers(),
+        body: jsonEncode({'old_password': oldPassword, 'new_password': newPassword}),
+      );
+      final data = jsonDecode(res.body);
+      if (data['success'] == true) {
+        return {'success': true, 'message': data['message'] ?? 'Password changed'};
+      }
+      return {'success': false, 'message': data['message'] ?? data['detail'] ?? 'Failed to change password'};
+    } catch (e) {
+      return {'success': false, 'message': 'Cannot connect to server'};
+    }
+  }
+
+  // FORGOT PASSWORD - request reset link
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/forgot-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+      final data = jsonDecode(res.body);
+      return {
+        'success': data['success'] == true,
+        'message': data['message'] ?? '',
+        'reset_link': data['reset_link'],
+      };
+    } catch (e) {
+      return {'success': false, 'message': 'Cannot connect to server'};
+    }
+  }
+
+  // RESET PASSWORD with token
+  static Future<Map<String, dynamic>> resetPassword(String token, String newPassword) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/auth/reset-password'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'token': token, 'new_password': newPassword}),
+      );
+      final data = jsonDecode(res.body);
+      return {'success': data['success'] == true, 'message': data['message'] ?? ''};
+    } catch (e) {
+      return {'success': false, 'message': 'Cannot connect to server'};
+    }
+  }
+
   // GET my assignments (with real questions)
   static Future<List<dynamic>> getMyAssignments() async {
     try {
@@ -136,6 +188,7 @@ class ApiService {
       return null;
     }
   }
+
   // GET inspection detail (for report viewer)
   static Future<Map<String, dynamic>?> getInspectionDetail(int assignmentId) async {
     try {
