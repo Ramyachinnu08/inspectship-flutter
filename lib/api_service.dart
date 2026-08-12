@@ -203,4 +203,64 @@ class ApiService {
       return null;
     }
   }
+
+  // ─── AI FEATURES ───────────────────────────────────────
+  // Ask AI a question
+  static Future<Map<String, dynamic>> aiAsk(String question, {String context = ''}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/ai/ask'),
+        headers: await _headers(),
+        body: jsonEncode({'question': question, 'context': context}),
+      );
+      final data = jsonDecode(res.body);
+      return {'success': data['success'] == true, 'answer': data['answer'] ?? data['message'] ?? ''};
+    } catch (e) {
+      return {'success': false, 'answer': 'Cannot connect to AI service'};
+    }
+  }
+
+  // Analyze an inspection photo (base64) for issues
+  static Future<Map<String, dynamic>> aiAnalyzeImage(String imageBase64, {String question = ''}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/ai/analyze-image'),
+        headers: await _headers(),
+        body: jsonEncode({'image': imageBase64, 'question': question}),
+      );
+      final data = jsonDecode(res.body);
+      return {'success': data['success'] == true, 'analysis': data['analysis'] ?? data['message'] ?? ''};
+    } catch (e) {
+      return {'success': false, 'analysis': 'Cannot connect to AI service'};
+    }
+  }
+
+  // Compare two photos (before/after)
+  static Future<Map<String, dynamic>> aiCompareImages(String beforeBase64, String afterBase64, {String context = ''}) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/ai/compare-images'),
+        headers: await _headers(),
+        body: jsonEncode({'before': beforeBase64, 'after': afterBase64, 'context': context}),
+      );
+      final data = jsonDecode(res.body);
+      return {'success': data['success'] == true, 'comparison': data['comparison'] ?? data['message'] ?? ''};
+    } catch (e) {
+      return {'success': false, 'comparison': 'Cannot connect to AI service'};
+    }
+  }
+
+  // Check if AI is configured
+  static Future<bool> aiStatus() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/ai/status'),
+        headers: await _headers(),
+      );
+      final data = jsonDecode(res.body);
+      return data['configured'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
 }

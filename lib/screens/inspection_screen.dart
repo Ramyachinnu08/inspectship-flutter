@@ -8,6 +8,7 @@ import 'signoff_screen.dart';
 import 'photo_editor_screen.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
+import 'ai_assistant_screen.dart';
 
 class InspectionScreen extends StatefulWidget {
   final Assignment assignment;
@@ -257,7 +258,17 @@ class _InspectionScreenState extends State<InspectionScreen> {
             Text('$_answered/$_total answered',
                 style: const TextStyle(
                     fontSize: 13, color: Color(0xFF6B7280))),
-            const SizedBox(width: 12),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AiAssistantScreen())),
+              icon: const Icon(Icons.auto_awesome, size: 16, color: Color(0xFFFF6B00)),
+              label: const Text('AI', style: TextStyle(fontSize: 12, color: Color(0xFFFF6B00))),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(0, 40),
+                side: const BorderSide(color: Color(0xFFFF6B00)),
+              ),
+            ),
+            const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _openCoverDialog,
               icon: Icon(Icons.image_outlined, size: 16,

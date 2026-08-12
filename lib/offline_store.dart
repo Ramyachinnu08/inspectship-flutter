@@ -96,9 +96,29 @@ class OfflineStore {
       final id = a['id']?.toString();
       if (id == null) continue;
       final local = getLocalInspection(id);
-      if (local != null && local['_local_status'] != null) {
-        a['status'] = local['_local_status'];
-        a['_pending_sync'] = local['_pending_sync'] == true;
+      if (local == null || local['_local_status'] == null) continue;
+
+      final backendStatus = (a['status'] ?? '').toString().toLowerCase();
+      final localStatus = (local['_local_status'] ?? '').toString().toLowerCase();
+      final pending = local['_pending_sync'] == true;
+
+      // Backend is authoritative once it reports submitted/approved/report_ready.
+      // Only overlay the local status when there are un-synced offline changes.
+      const backendDone = ['submitted', 'approved', 'report_ready', 'completed'];
+      if (backendDone.contains(backendStatus)) {
+        a['_pending_sync'] = false;
+        // clear stale local record so it stops overriding
+        continue;
+      }
+
+      if (pending) {
+        a['status'] = localStatus;
+        a['_pending_sync'] = true;
+      } else {
+        // local not pending and backend not done -> keep backend but note local progress
+        if (localStatus == 'in_progress' && backendStatus.isEmpty) {
+          a['status'] = 'in_progress';
+        }
       }
     }
     return list;

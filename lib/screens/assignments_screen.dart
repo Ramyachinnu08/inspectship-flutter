@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../api_service.dart';
+import 'ai_assistant_screen.dart';
 import '../offline_store.dart';
 import 'inspection_launcher.dart';
 
@@ -79,6 +80,12 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AiAssistantScreen())),
+        backgroundColor: const Color(0xFFF06B26),
+        icon: const Icon(Icons.auto_awesome, color: Colors.white),
+        label: const Text('AI Assistant', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+      ),
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator(color: Color(0xFF1A2A5E)))
