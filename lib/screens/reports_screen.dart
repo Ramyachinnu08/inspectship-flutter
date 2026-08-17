@@ -23,7 +23,6 @@ class _ReportsScreenState extends State<ReportsScreen> {
   Future<void> _loadData() async {
     setState(() => _loading = true);
     final all = await ApiService.getMyAssignments();
-    // Show only submitted (completed with report)
     final submitted = all.where((a) => (a['status'] ?? '').toString().toLowerCase() == 'submitted').toList();
     if (!mounted) return;
     setState(() {
@@ -52,11 +51,18 @@ class _ReportsScreenState extends State<ReportsScreen> {
             Container(
               width: 36,
               height: 36,
+              clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                color: const Color(0xFFFF6B00),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: const Icon(Icons.anchor, color: Colors.white, size: 20),
+              child: Image.network(
+                'https://i.ibb.co/8g7pqvvr/knot.png',
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => Container(
+                  color: const Color(0xFFFF6B00),
+                  child: const Icon(Icons.anchor, color: Colors.white, size: 20),
+                ),
+              ),
             ),
             const SizedBox(width: 12),
             const Text('My Reports',

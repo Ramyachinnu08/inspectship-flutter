@@ -66,18 +66,25 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     // Logo + brand (above the card)
                     Container(
-                      width: 72, height: 72,
+                      width: 84, height: 84,
                       decoration: BoxDecoration(
-                        color: _kPrimary,
                         borderRadius: BorderRadius.circular(18),
                         boxShadow: [
-                          BoxShadow(color: _kPrimary.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8)),
+                          BoxShadow(color: _kPrimary.withOpacity(0.3), blurRadius: 20, offset: const Offset(0, 8)),
                         ],
                       ),
-                      child: const Icon(Icons.directions_boat, color: Colors.white, size: 36),
+                      clipBehavior: Clip.antiAlias,
+                      child: Image.network(
+                        'https://i.ibb.co/8g7pqvvr/knot.png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: _kPrimary,
+                          child: const Icon(Icons.directions_boat, color: Colors.white, size: 36),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 18),
-                    const Text('SEA SECURE',
+                    const Text('RIGHTKNOT',
                         style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 1.5)),
                     const SizedBox(height: 4),
                     const Text('Vessel Inspection Platform',
@@ -191,7 +198,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
 
                     const SizedBox(height: 20),
-                    const Text('© 2026 Sea Secure Shipping',
+                    const Text('© 2026 RightKnot Shipping',
                         style: TextStyle(fontSize: 12, color: Color(0xFF8494B4))),
                   ],
                 ),

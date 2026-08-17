@@ -58,7 +58,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   List<dynamic> get _todayAssignments {
-    // Show upcoming + in_progress assignments
     return _assignments.where((a) {
       final status = (a['status'] ?? '').toString().toLowerCase();
       return status == 'upcoming' || status == 'in_progress';
@@ -100,11 +99,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Container(
           width: 44,
           height: 44,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: const Color(0xFFFF6B00),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.anchor, color: Colors.white, size: 24),
+          child: Image.network(
+            'https://i.ibb.co/8g7pqvvr/knot.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              color: const Color(0xFFFF6B00),
+              child: const Icon(Icons.anchor, color: Colors.white, size: 24),
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(

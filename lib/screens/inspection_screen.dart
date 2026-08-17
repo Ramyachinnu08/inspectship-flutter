@@ -146,6 +146,112 @@ class _InspectionScreenState extends State<InspectionScreen> {
     );
   }
 
+  // AI: analyse a photo for THIS question and show the result in a separate box
+  bool _aiBusy = false;
+  final Map<String, String> _aiAnswers = {}; // questionId -> AI analysis text
+
+  // Strip markdown symbols from AI text
+  String _cleanMd(String s) {
+    return s
+        .replaceAll(RegExp(r'\*\*'), '')
+        .replaceAll(RegExp(r'#+\s*'), '')
+        .replaceAll(RegExp(r'^\s*[>*-]\s*', multiLine: true), '')
+        .trim();
+  }
+
+  // Split AI answer into titled boxes. Very forgiving - splits on any line that
+  // starts with 1/2/3 and looks like a short heading (What to Check / Typical Finding / etc.)
+  List<Map<String, String>> _aiSections(String raw) {
+    // First strip markdown symbols entirely
+    String text = raw.replaceAll(RegExp(r'[#*>`]'), '');
+    final lines = text.split('\n');
+    final result = <Map<String, String>>[];
+    String? curTitle;
+    final buffer = StringBuffer();
+
+    void flush() {
+      if (curTitle != null) {
+        result.add({'title': curTitle!, 'body': buffer.toString().trim()});
+      }
+      buffer.clear();
+    }
+
+    for (final rawLine in lines) {
+      final line = rawLine.trim();
+      // Heading = starts with 1-5 then . or ) then a SHORT title (<= 6 words, no ending period)
+      final m = RegExp(r'^([1-5])\s*[.)]\s*(.{2,50})$').firstMatch(line);
+      bool isHeading = false;
+      String title = '';
+      if (m != null) {
+        final candidate = m.group(2)!.trim();
+        final wordCount = candidate.split(RegExp(r'\s+')).length;
+        // a heading is short and doesn't end with a period/colon-sentence
+        if (wordCount <= 6 && !candidate.endsWith('.')) {
+          isHeading = true;
+          title = candidate;
+        }
+      }
+      if (isHeading) {
+        flush();
+        curTitle = title;
+      } else {
+        buffer.writeln(rawLine);
+      }
+    }
+    flush();
+
+    if (result.length >= 2) return result;
+    // fallback: single box
+    return [{'title': 'AI Analysis', 'body': text.trim()}];
+  }
+
+  // Answer the question text (uses attached photo if one exists, else text-only)
+  Future<void> _aiGenerateComment(Question q) async {
+    if (_aiBusy) return;
+    setState(() => _aiBusy = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('AI is thinking…'), duration: Duration(seconds: 1)),
+    );
+
+    Map<String, dynamic> result;
+    if (q.photos.isNotEmpty) {
+      // use the question's attached photo + question text
+      String b64 = q.photos.last.url;
+      if (b64.contains(',')) b64 = b64.split(',').last;
+      result = await ApiService.aiAnalyzeImage(b64, question: q.text);
+      if (!mounted) return;
+      setState(() {
+        _aiBusy = false;
+        if (result['success'] == true) {
+          _aiAnswers[q.id] = result['analysis']?.toString() ?? '';
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['analysis']?.toString() ?? 'AI failed')),
+          );
+        }
+      });
+    } else {
+      // no photo -> answer the question as text
+      final prompt = 'You are a marine vessel inspector. For this inspection question: "${q.text}", answer in EXACTLY 3 numbered sections. '
+          'Do NOT use asterisks, hashes or any markdown. Plain text only. Use these exact headings:\n'
+          '1. What to Check\n(your points here)\n\n'
+          '2. Typical Finding\n(a realistic example finding here)\n\n'
+          '3. Suggested Answer/Comment\n(a ready-to-use inspector comment here)';
+      result = await ApiService.aiAsk(prompt);
+      if (!mounted) return;
+      setState(() {
+        _aiBusy = false;
+        if (result['success'] == true) {
+          _aiAnswers[q.id] = result['answer']?.toString() ?? '';
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(result['answer']?.toString() ?? 'AI failed')),
+          );
+        }
+      });
+    }
+  }
+
   Future<void> _addMockPhoto(Question q) async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(
@@ -218,6 +324,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
             'comment': q.comment,
             'question_text': q.text,
             'photos': q.photos.map((p) => p.url).toList(),
+            'photo_captions': q.photos.map((p) => p.caption).toList(),
           };
         }
       }
@@ -313,7 +420,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
             child: Row(
               children: [
                 const Expanded(
-                  child: Text('SEA SECURE',
+                  child: Text('RIGHTKNOT',
                       style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w800,
@@ -869,6 +976,18 @@ class _InspectionScreenState extends State<InspectionScreen> {
                       selected == AnswerValue.nv)
                     const Text(' *',
                         style: TextStyle(color: Color(0xFFEF4444))),
+                  const Spacer(),
+                  OutlinedButton.icon(
+                    onPressed: _aiBusy ? null : () => _aiGenerateComment(q),
+                    icon: const Icon(Icons.auto_awesome, size: 15, color: Color(0xFFFF6B00)),
+                    label: Text(_aiBusy ? 'Thinking…' : 'AI Answer',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFFFF6B00), fontWeight: FontWeight.w700)),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      side: const BorderSide(color: Color(0xFFFF6B00)),
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 10),
@@ -887,6 +1006,82 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 ),
                 style: const TextStyle(fontSize: 13),
               ),
+              // ─── AI answer: 3 separate boxes, each copyable ───
+              if (_aiAnswers[q.id] != null && _aiAnswers[q.id]!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, size: 15, color: Color(0xFFFF6B00)),
+                    const SizedBox(width: 6),
+                    const Text('AI Analysis',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFFF6B00))),
+                    const Spacer(),
+                    InkWell(
+                      onTap: () => setState(() => _aiAnswers.remove(q.id)),
+                      child: const Icon(Icons.close, size: 16, color: Color(0xFF9CA3AF)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ...(() {
+                  final sections = _aiSections(_aiAnswers[q.id] ?? '');
+                  return List.generate(sections.length, (idx) {
+                    final title = sections[idx]['title'] ?? 'Section ${idx + 1}';
+                    final body = sections[idx]['body'] ?? '';
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 10),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3EC),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFFF6B00)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFF6B00),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text('${idx + 1}. $title',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                              ),
+                              const Spacer(),
+                              InkWell(
+                                onTap: () {
+                                  final txt = _commentCtrl(q).text;
+                                  final merged = txt.isEmpty ? body : '$txt\n$body';
+                                  _commentCtrl(q).text = merged;
+                                  q.comment = merged;
+                                  setState(() {});
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('Copied "$title" to comment'), duration: const Duration(seconds: 1)),
+                                  );
+                                },
+                                child: Row(
+                                  children: const [
+                                    Icon(Icons.copy, size: 13, color: Color(0xFF1A2A5E)),
+                                    SizedBox(width: 3),
+                                    Text('Copy',
+                                        style: TextStyle(fontSize: 11, color: Color(0xFF1A2A5E), fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(body, style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF111111))),
+                        ],
+                      ),
+                    );
+                  });
+                })(),
+              ],
             ],
           ),
         ),
@@ -993,6 +1188,33 @@ class _InspectionScreenState extends State<InspectionScreen> {
     );
   }
 
+  final Map<String, String> _photoAiAnswers = {}; // photoId -> AI text
+  bool _photoAiBusy = false;
+
+  Future<void> _aiAnalyzeEvidence(Question q, EvidencePhoto photo) async {
+    if (_photoAiBusy) return;
+    setState(() => _photoAiBusy = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('AI analysing evidence…'), duration: Duration(seconds: 1)),
+    );
+    String b64 = photo.url;
+    if (b64.contains(',')) b64 = b64.split(',').last;
+    final result = await ApiService.aiAnalyzeImage(b64, question: q.text);
+    if (!mounted) return;
+    setState(() {
+      _photoAiBusy = false;
+      if (result['success'] == true) {
+        final analysis = _cleanMd(result['analysis']?.toString() ?? '');
+        _photoAiAnswers[photo.id] = analysis;
+        photo.caption = analysis; // SAVE it on the photo so it persists + shows in PDF
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(result['analysis']?.toString() ?? 'AI failed')),
+        );
+      }
+    });
+  }
+
   Widget _photoCard(Question q, EvidencePhoto photo, int idx) {
     return Container(
       decoration: BoxDecoration(
@@ -1043,6 +1265,12 @@ class _InspectionScreenState extends State<InspectionScreen> {
                       )),
                 ),
                 _photoActionBtn(
+                  icon: Icons.auto_awesome,
+                  label: 'AI',
+                  color: const Color(0xFFFF6B00),
+                  onTap: () => _aiAnalyzeEvidence(q, photo),
+                ),
+                _photoActionBtn(
                   icon: Icons.download_outlined,
                   label: 'Download',
                   color: const Color(0xFF3B82F6),
@@ -1061,6 +1289,36 @@ class _InspectionScreenState extends State<InspectionScreen> {
               ],
             ),
           ),
+          if (_photoAiAnswers[photo.id] != null && _photoAiAnswers[photo.id]!.isNotEmpty)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: const BoxDecoration(
+                color: Color(0xFFFFF3EC),
+                border: Border(top: BorderSide(color: Color(0xFFFF6B00))),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, size: 13, color: Color(0xFFFF6B00)),
+                      const SizedBox(width: 5),
+                      const Text('AI Analysis',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFFFF6B00))),
+                      const Spacer(),
+                      InkWell(
+                        onTap: () => setState(() => _photoAiAnswers.remove(photo.id)),
+                        child: const Icon(Icons.close, size: 13, color: Color(0xFF9CA3AF)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(_photoAiAnswers[photo.id] ?? '',
+                      style: const TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF111111))),
+                ],
+              ),
+            ),
         ],
       ),
     );

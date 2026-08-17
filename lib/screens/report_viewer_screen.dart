@@ -109,6 +109,8 @@ class ReportViewerScreen extends StatelessWidget {
         children: [
           _CoverPage(assignment: assignment),
           const SizedBox(height: 8),
+          _IndexPage(assignment: assignment),
+          const SizedBox(height: 8),
           _SectionCommentsPage(),
           const SizedBox(height: 8),
           _AnswerBlock(
@@ -178,6 +180,8 @@ class ReportViewerScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _EvidencePhotosPage(assignment: assignment),
           const SizedBox(height: 8),
+          _SummaryPage(assignment: assignment),
+          const SizedBox(height: 8),
           _ContactUsPage(),
           const SizedBox(height: 24),
         ],
@@ -192,7 +196,7 @@ class _Page extends StatelessWidget {
   final Color? borderLeftColor;
   const _Page({
     required this.child,
-    this.padding = const EdgeInsets.all(24),
+    this.padding = const EdgeInsets.all(28),
     this.borderLeftColor,
   });
 
@@ -202,10 +206,13 @@ class _Page extends StatelessWidget {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(14),
         border: borderLeftColor != null
-            ? Border(left: BorderSide(color: borderLeftColor!, width: 4))
-            : Border.all(color: const Color(0xFFE5E7EB)),
+            ? Border(left: BorderSide(color: borderLeftColor!, width: 5))
+            : Border.all(color: const Color(0xFFECECEC)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 14, offset: const Offset(0, 4)),
+        ],
       ),
       padding: padding,
       child: child,
@@ -236,7 +243,7 @@ class _CoverPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: 14, vertical: 6),
               color: const Color(0xFFFF6B00),
-              child: const Text('SEA SECURE',
+              child: const Text('RIGHTKNOT',
                   style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -262,7 +269,7 @@ class _CoverPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Sea Secure Inspection Report',
+                const Text('RightKnot Inspection Report',
                     style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -285,7 +292,7 @@ class _CoverPage extends StatelessWidget {
                       _kv('Inspection ID', a.id),
                       _kv('Vessel Name (IMO Number)',
                           '${a.vesselName} (${a.imo})'),
-                      _kv('Technical Management', 'Sea Secure Shipping'),
+                      _kv('Technical Management', 'RightKnot Shipping'),
                       _kv('Inspector', 'Ramya Poojary'),
                       _kv('Date of Inspection', _formatDate(a.dueDate)),
                       _kv('Port of Inspection', a.port),
@@ -482,6 +489,23 @@ class _AnswerBlock extends StatelessWidget {
     );
   }
 
+  // Generate a short summary for a question based on its answer + comment
+  String _questionSummary(Question q) {
+    final ans = q.answer;
+    String status;
+    switch (ans) {
+      case AnswerValue.pass: status = 'Satisfactory'; break;
+      case AnswerValue.fail: status = 'Deficiency noted'; break;
+      case AnswerValue.na: status = 'Not applicable'; break;
+      case AnswerValue.nv: status = 'Not viewed'; break;
+      default: status = 'Not answered';
+    }
+    final photoCount = q.photos.length;
+    final photoNote = photoCount > 0 ? ' $photoCount photo(s) attached.' : '';
+    final commentNote = q.comment.isNotEmpty ? ' Inspector noted: ${q.comment.length > 60 ? "${q.comment.substring(0, 60)}..." : q.comment}' : '';
+    return '$status.$commentNote$photoNote';
+  }
+
   Widget _questionRow(Question q) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -507,8 +531,9 @@ class _AnswerBlock extends StatelessWidget {
               children: [
                 Text(q.text,
                     style: const TextStyle(
-                        fontSize: 12,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
+                        height: 1.4,
                         color: Color(0xFF1A2A5E))),
                 if ((showFindings || showComment) && q.comment.isNotEmpty)
                   Padding(
@@ -519,6 +544,30 @@ class _AnswerBlock extends StatelessWidget {
                           fontSize: 11, color: Color(0xFF374151)),
                     ),
                   ),
+                // Auto summary line per question (generated in PDF)
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3EC),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.auto_awesome, size: 11, color: Color(0xFFFF6B00)),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Summary: ${_questionSummary(q)}',
+                            style: const TextStyle(fontSize: 10, color: Color(0xFF6B4423), fontStyle: FontStyle.italic),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -619,10 +668,31 @@ class _EvidencePhotosPage extends StatelessWidget {
                     maxLines: 2, overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
                 if (it.caption.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(it.caption,
-                      maxLines: 2, overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Color(0xFF374151))),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF3EC),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: const Color(0xFFFFD9BF)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.auto_awesome, size: 11, color: Color(0xFFFF6B00)),
+                            SizedBox(width: 4),
+                            Text('AI Analysis',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFFF6B00))),
+                          ],
+                        ),
+                        const SizedBox(height: 3),
+                        Text(it.caption,
+                            style: const TextStyle(fontSize: 11, color: Color(0xFF374151))),
+                      ],
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -646,6 +716,202 @@ class _EvidenceItem {
     this.caption = '',
     this.answerKey,
   });
+}
+
+
+class _IndexPage extends StatelessWidget {
+  final Assignment assignment;
+  const _IndexPage({required this.assignment});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = assignment;
+    int page = 3; // sections start after cover(1) + index(2)
+    final blocks = <Widget>[];
+
+    for (final s in a.sections) {
+      final startPage = page;
+      final pages = (s.questions.length / 8).ceil().clamp(1, 99);
+      final endPage = startPage + pages - 1;
+      // Section header with page range
+      blocks.add(Padding(
+        padding: const EdgeInsets.only(top: 12, bottom: 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(s.title,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+            ),
+            Text(startPage == endPage ? '$startPage' : '$startPage-$endPage',
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFFFF6B00))),
+          ],
+        ),
+      ));
+      page = endPage + 1;
+    }
+
+    // Fixed trailing entries
+    blocks.add(const SizedBox(height: 10));
+    blocks.add(_fixedRow('Evidence Photos', '$page'));
+    page += 1;
+    blocks.add(_fixedRow('Inspection Summary', '$page'));
+
+    return _Page(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.list_alt, size: 20, color: Color(0xFF1A2A5E)),
+              SizedBox(width: 8),
+              Text('CONTENTS',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E), letterSpacing: 1.5)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF9FAFB),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: blocks),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fixedRow(String title, String page) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(title,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+          ),
+          Text('Page $page',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: Color(0xFFFF6B00))),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryPage extends StatelessWidget {
+  final Assignment assignment;
+  const _SummaryPage({required this.assignment});
+
+  @override
+  Widget build(BuildContext context) {
+    final a = assignment;
+    final total = a.totalQuestions;
+    final answered = a.answeredQuestions;
+    final findings = a.findings;
+    // collect finding questions
+    final findingQs = a.allQuestions.where((q) => q.answer == AnswerValue.fail).toList();
+
+    return _Page(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.summarize, size: 20, color: Color(0xFF1A2A5E)),
+              SizedBox(width: 8),
+              Text('INSPECTION SUMMARY',
+                  style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E), letterSpacing: 1.5)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          // Stats row
+          Row(
+            children: [
+              _stat('Total Questions', '$total', const Color(0xFF1A2A5E)),
+              const SizedBox(width: 10),
+              _stat('Answered', '$answered', const Color(0xFF22C55E)),
+              const SizedBox(width: 10),
+              _stat('Findings', '$findings', const Color(0xFFEF4444)),
+            ],
+          ),
+          const SizedBox(height: 20),
+          const Text('Key Findings',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF111111))),
+          const SizedBox(height: 10),
+          if (findingQs.isEmpty)
+            const Text('No findings recorded. Vessel passed all inspected items.',
+                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)))
+          else
+            ...findingQs.map((q) => Container(
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEF2F2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFECACA)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Q ${q.id}: ${q.text}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF991B1B))),
+                  if (q.comment.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(q.comment, style: const TextStyle(fontSize: 12, color: Color(0xFF374151))),
+                  ],
+                ],
+              ),
+            )),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Overall Assessment',
+                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF166534))),
+                const SizedBox(height: 6),
+                Text(
+                  findings == 0
+                      ? 'The vessel ${a.vesselName} (${a.imo}) was inspected and no significant deficiencies were identified. The vessel appears to be maintained in satisfactory condition.'
+                      : 'The vessel ${a.vesselName} (${a.imo}) was inspected and $findings finding(s) were identified requiring attention. Corrective actions should be addressed as noted above.',
+                  style: const TextStyle(fontSize: 12, height: 1.5, color: Color(0xFF374151)),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _stat(String label, String value, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Column(
+          children: [
+            Text(value, style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color)),
+            const SizedBox(height: 4),
+            Text(label, textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF6B7280), fontWeight: FontWeight.w600)),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _ContactUsPage extends StatelessWidget {
@@ -686,7 +952,7 @@ class _ContactUsPage extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12, color: Color(0xFF374151))),
                 SizedBox(height: 6),
-                Text('💼  Sea Secure Shipping',
+                Text('💼  RightKnot Shipping',
                     style: TextStyle(
                         fontSize: 12, color: Color(0xFF374151))),
               ],
@@ -732,7 +998,7 @@ class _ContactUsPage extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF1A2A5E))),
                       SizedBox(height: 4),
-                      Text('Sea Secure India Office',
+                      Text('RightKnot India Office',
                           style: TextStyle(
                               fontSize: 11, color: Color(0xFF6B7280))),
                       Text('Mumbai, Maharashtra',

@@ -105,7 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         elevation: 0,
         leading: IconButton(icon: const Icon(Icons.arrow_back, color: Colors.black), onPressed: () => Navigator.of(context).maybePop()),
         title: Row(children: [
-          Container(width: 32, height: 32, decoration: BoxDecoration(color: _kPrimary, borderRadius: BorderRadius.circular(6)), child: const Icon(Icons.directions_boat, color: Colors.white, size: 20)),
+          Container(width: 32, height: 32, clipBehavior: Clip.antiAlias, decoration: BoxDecoration(borderRadius: BorderRadius.circular(6)), child: Image.network('https://i.ibb.co/8g7pqvvr/knot.png', fit: BoxFit.contain, errorBuilder: (_, __, ___) => Container(color: _kPrimary, child: const Icon(Icons.directions_boat, color: Colors.white, size: 20)))),
           const SizedBox(width: 8),
           const Text('Profile', style: TextStyle(color: Colors.black, fontWeight: FontWeight.w700, fontSize: 16)),
         ]),

@@ -125,7 +125,11 @@ class _PageHeader extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(color: AppColors.signal, borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.anchor, color: Colors.white, size: 24),
+          child: Image.network(
+            'https://i.ibb.co/8g7pqvvr/knot.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => const Icon(Icons.anchor, color: Colors.white, size: 24),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(

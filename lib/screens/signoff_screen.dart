@@ -231,7 +231,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                     decoration: const BoxDecoration(
                       color: Color(0xFFFF6B00),
                     ),
-                    child: const Text('SEA SECURE',
+                    child: const Text('RIGHTKNOT',
                         style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w800,

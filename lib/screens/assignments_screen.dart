@@ -64,16 +64,40 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
     _loadData();
   }
 
+  // Order: incomplete work first (in_progress, overdue, upcoming), completed/submitted last
+  int _statusRank(String status) {
+    switch (status) {
+      case 'in_progress': return 0;
+      case 'overdue': return 1;
+      case 'upcoming': return 2;
+      case 'submitted':
+      case 'approved':
+      case 'completed': return 3;
+      default: return 2;
+    }
+  }
+
   List<dynamic> get _filteredAssignments {
-    if (_filter == 'All') return _assignments;
-    return _assignments.where((a) {
-      final status = (a['status'] ?? '').toString().toLowerCase();
-      if (_filter == 'Upcoming') return status == 'upcoming';
-      if (_filter == 'In Progress') return status == 'in_progress';
-      if (_filter == 'Overdue') return status == 'overdue';
-      if (_filter == 'Completed') return status == 'submitted';
-      return true;
-    }).toList();
+    List<dynamic> list;
+    if (_filter == 'All') {
+      list = List.from(_assignments);
+    } else {
+      list = _assignments.where((a) {
+        final status = (a['status'] ?? '').toString().toLowerCase();
+        if (_filter == 'Upcoming') return status == 'upcoming';
+        if (_filter == 'In Progress') return status == 'in_progress';
+        if (_filter == 'Overdue') return status == 'overdue';
+        if (_filter == 'Completed') return status == 'submitted' || status == 'approved' || status == 'completed';
+        return true;
+      }).toList();
+    }
+    // sort: incomplete first, completed/submitted last
+    list.sort((a, b) {
+      final sa = _statusRank((a['status'] ?? '').toString().toLowerCase());
+      final sb = _statusRank((b['status'] ?? '').toString().toLowerCase());
+      return sa.compareTo(sb);
+    });
+    return list;
   }
 
   @override
@@ -134,11 +158,18 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
         Container(
           width: 44,
           height: 44,
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
-            color: const Color(0xFFFF6B00),
             borderRadius: BorderRadius.circular(10),
           ),
-          child: const Icon(Icons.anchor, color: Colors.white, size: 24),
+          child: Image.network(
+            'https://i.ibb.co/8g7pqvvr/knot.png',
+            fit: BoxFit.contain,
+            errorBuilder: (_, __, ___) => Container(
+              color: const Color(0xFFFF6B00),
+              child: const Icon(Icons.anchor, color: Colors.white, size: 24),
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
