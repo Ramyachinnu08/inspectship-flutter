@@ -204,12 +204,28 @@ class ApiService {
     }
   }
 
+  // ─── OFFLINE KNOWLEDGE PACK ────────────────────────────
+  /// Download the full knowledge base (titles + text chunks) for offline answering.
+  static Future<List<dynamic>> fetchKnowledgePack() async {
+    try {
+      final res = await http.get(
+        Uri.parse('${ApiConfig.baseUrl}/api/rag/offline-pack'),
+        headers: await _headers(),
+      );
+      final data = jsonDecode(res.body);
+      if (data['success'] == true && data['documents'] is List) {
+        return data['documents'];
+      }
+    } catch (_) {}
+    return [];
+  }
+
   // ─── AI FEATURES ───────────────────────────────────────
   // Ask AI a question
   static Future<Map<String, dynamic>> aiAsk(String question, {String context = ''}) async {
     try {
       final res = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/api/ai/ask'),
+        Uri.parse('${ApiConfig.baseUrl}/api/rag/ask'),
         headers: await _headers(),
         body: jsonEncode({'question': question, 'context': context}),
       );

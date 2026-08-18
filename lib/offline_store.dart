@@ -18,11 +18,13 @@ class OfflineStore {
   static const String _kInspections = 'inspections';
   static const String _kSyncQueue = 'syncQueue';
   static const String _kMeta = 'meta';
+  static const String _kKnowledge = 'knowledge';
 
   late Box _assignments;
   late Box _inspections;
   late Box _syncQueue;
   late Box _meta;
+  late Box _knowledge;
 
   bool _ready = false;
 
@@ -33,6 +35,7 @@ class OfflineStore {
     _inspections = await Hive.openBox(_kInspections);
     _syncQueue = await Hive.openBox(_kSyncQueue);
     _meta = await Hive.openBox(_kMeta);
+    _knowledge = await Hive.openBox(_kKnowledge);
     _ready = true;
   }
 
@@ -53,6 +56,64 @@ class OfflineStore {
       }
       return result != ConnectivityResult.none;
     });
+  }
+
+  // ─────────────────────── OFFLINE KNOWLEDGE ──────────────────────
+  /// Save the knowledge base pack (list of {id, title, chunks:[..]}) for offline answering.
+  Future<void> cacheKnowledge(List<dynamic> docs) async {
+    if (docs.isEmpty) return;
+    await _knowledge.put('pack', jsonEncode(docs));
+    await _knowledge.put('cachedAt', DateTime.now().toIso8601String());
+  }
+
+  /// Number of cached knowledge documents (0 = nothing cached yet).
+  int get knowledgeDocCount {
+    final raw = _knowledge.get('pack');
+    if (raw == null) return 0;
+    try {
+      return (jsonDecode(raw) as List).length;
+    } catch (_) {
+      return 0;
+    }
+  }
+
+  /// Simple keyword search over cached document chunks.
+  /// Returns the top matching excerpts as (docTitle, chunkText) maps.
+  List<Map<String, String>> searchKnowledge(String query, {int topK = 3}) {
+    final raw = _knowledge.get('pack');
+    if (raw == null) return [];
+    List<dynamic> docs;
+    try {
+      docs = jsonDecode(raw);
+    } catch (_) {
+      return [];
+    }
+    final terms = query
+        .toLowerCase()
+        .split(RegExp(r'[^a-z0-9]+'))
+        .where((w) => w.length > 2)
+        .toSet();
+    if (terms.isEmpty) return [];
+
+    final scored = <({double score, String title, String chunk})>[];
+    for (final d in docs) {
+      final title = (d['title'] ?? '').toString();
+      final chunks = (d['chunks'] as List?) ?? [];
+      for (final c in chunks) {
+        final text = c.toString();
+        final lower = text.toLowerCase();
+        double score = 0;
+        for (final t in terms) {
+          score += RegExp(RegExp.escape(t)).allMatches(lower).length;
+        }
+        if (score > 0) scored.add((score: score, title: title, chunk: text));
+      }
+    }
+    scored.sort((a, b) => b.score.compareTo(a.score));
+    return scored
+        .take(topK)
+        .map((e) => {'title': e.title, 'chunk': e.chunk})
+        .toList();
   }
 
   // ─────────────────────── ASSIGNMENTS CACHE ──────────────────────

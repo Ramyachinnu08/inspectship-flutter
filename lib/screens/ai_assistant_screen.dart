@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../api_service.dart';
+import '../offline_store.dart';
 
 const _kPrimary = Color(0xFFF06B26);
 const _kNavy = Color(0xFF1A2A5E);
@@ -28,6 +29,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   void initState() {
     super.initState();
     _initHive();
+    _refreshKnowledgeCache();
   }
 
   Future<void> _initHive() async {
@@ -111,6 +113,41 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     });
   }
 
+  /// When online, silently download/update the knowledge base for offline use.
+  Future<void> _refreshKnowledgeCache() async {
+    try {
+      if (await OfflineStore.instance.isOnline()) {
+        final pack = await ApiService.fetchKnowledgePack();
+        await OfflineStore.instance.cacheKnowledge(pack);
+      }
+    } catch (_) {}
+  }
+
+  /// Build an answer from cached documents when there is no internet.
+  String _offlineAnswer(String q) {
+    final hits = OfflineStore.instance.searchKnowledge(q, topK: 3);
+    if (hits.isEmpty) {
+      if (OfflineStore.instance.knowledgeDocCount == 0) {
+        return "📴 You're offline and no documents are saved yet.\n\n"
+            "Open the AI Assistant once while online — I'll automatically save the "
+            "knowledge base documents to this device for offline use.";
+      }
+      return "📴 You're offline. I searched the saved documents but couldn't find "
+          "anything matching that. Try different keywords (e.g. equipment names).";
+    }
+    final b = StringBuffer();
+    b.writeln("📚 Offline answer — from your saved documents:\n");
+    for (var i = 0; i < hits.length; i++) {
+      b.writeln("${i + 1}. From \"${hits[i]['title']}\":");
+      var chunk = hits[i]['chunk'] ?? '';
+      if (chunk.length > 600) chunk = '${chunk.substring(0, 600)}…';
+      b.writeln(chunk.trim());
+      if (i < hits.length - 1) b.writeln();
+    }
+    b.writeln("\n(Full AI answers will resume when you're back online.)");
+    return b.toString();
+  }
+
   Future<void> _sendQuestion() async {
     final q = _msgCtrl.text.trim();
     if (q.isEmpty || _busy) return;
@@ -120,10 +157,23 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
       _msgCtrl.clear();
     });
     _scrollToBottom();
-    final result = await ApiService.aiAsk(q);
+
+    final online = await OfflineStore.instance.isOnline();
+    String answer;
+    if (online) {
+      final result = await ApiService.aiAsk(q);
+      answer = result['answer']?.toString() ?? 'No response';
+      // AI service reachable issues -> fall back to offline docs
+      if (result['success'] != true && answer == 'Cannot connect to AI service') {
+        answer = _offlineAnswer(q);
+      }
+    } else {
+      answer = _offlineAnswer(q);
+    }
+
     if (!mounted) return;
     setState(() {
-      _messages.add(_Msg(fromUser: false, text: result['answer']?.toString() ?? 'No response'));
+      _messages.add(_Msg(fromUser: false, text: answer));
       _busy = false;
     });
     _scrollToBottom();
