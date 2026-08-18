@@ -71,7 +71,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                 style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 12),
             const Text('⚠️ Once submitted, this cannot be undone.',
-                style: TextStyle(fontSize: 13, color: Color(0xFF6B7280))),
+                style: TextStyle(fontSize: 13, color: Color(0xFF8A6A4E))),
           ],
         ),
         actions: [
@@ -177,7 +177,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B00),
+              backgroundColor: const Color(0xFFE8630A),
               foregroundColor: Colors.white,
             ),
             child: const Text('Submit'),
@@ -190,7 +190,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF2EBDD),
       body: SafeArea(
         child: Column(
           children: [
@@ -201,7 +201,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.arrow_back_ios,
-                        color: Color(0xFF1A2A5E), size: 20),
+                        color: Color(0xFF5C2E0E), size: 20),
                     onPressed: () => Navigator.of(context).maybePop(),
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),
@@ -210,17 +210,25 @@ class _SignOffScreenState extends State<SignOffScreen> {
                   Text(
                       'Inspection of ${widget.assignment.vesselName.toUpperCase()} (IMO: ${widget.assignment.imo.replaceAll("IMO ", "")})',
                       style: const TextStyle(
-                          fontSize: 18,
+                          fontFamily: 'Georgia',
+                          fontFamilyFallback: ['Times New Roman', 'serif'],
+                          fontSize: 19,
                           fontWeight: FontWeight.w800,
-                          color: Color(0xFF111111))),
+                          color: Color(0xFF3D2817))),
                   const Spacer(),
                 ],
               ),
             ),
-            // Blue banner with RIGHTSHIP-style tag
+            // Dark brown banner with RightKnot badge
             Container(
               width: double.infinity,
-              color: const Color(0xFF1A2A5E),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [Color(0xFF241008), Color(0xFF4A2410)],
+                ),
+              ),
               padding:
               const EdgeInsets.symmetric(horizontal: 40, vertical: 18),
               child: Row(
@@ -228,17 +236,34 @@ class _SignOffScreenState extends State<SignOffScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 20, vertical: 10),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFFF6B00),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8630A),
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text('RIGHTKNOT',
-                        style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            letterSpacing: 1.2)),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.anchor, color: Colors.white, size: 16),
+                        SizedBox(width: 8),
+                        Text('RIGHTKNOT',
+                            style: TextStyle(
+                                fontFamily: 'Georgia',
+                                fontFamilyFallback: ['Times New Roman', 'serif'],
+                                color: Colors.white,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 15,
+                                letterSpacing: 1.5)),
+                      ],
+                    ),
                   ),
                   const Spacer(),
+                  const Text('Sign Off',
+                      style: TextStyle(
+                          fontFamily: 'Georgia',
+                          fontFamilyFallback: ['Times New Roman', 'serif'],
+                          color: Color(0xFFD9B98F),
+                          fontWeight: FontWeight.w700,
+                          fontSize: 16)),
                 ],
               ),
             ),
@@ -264,7 +289,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                     const SizedBox(height: 24),
                     // Divider
                     Container(
-                        height: 1, color: const Color(0xFFE5E7EB)),
+                        height: 1, color: const Color(0xFFE8D9C0)),
                     const SizedBox(height: 20),
                     // Couldn't obtain checkbox
                     Row(
@@ -273,6 +298,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                           width: 20,
                           height: 20,
                           child: Checkbox(
+                            activeColor: const Color(0xFFE8630A),
                             value: _couldntObtainSig,
                             onChanged: (v) => setState(
                                     () => _couldntObtainSig = v ?? false),
@@ -282,12 +308,12 @@ class _SignOffScreenState extends State<SignOffScreen> {
                         const Text("Couldn't obtain the signature",
                             style: TextStyle(
                                 fontSize: 14,
-                                color: Color(0xFF1A2A5E))),
+                                color: Color(0xFF5C2E0E))),
                       ],
                     ),
                     const SizedBox(height: 24),
                     Container(
-                        height: 1, color: const Color(0xFFE5E7EB)),
+                        height: 1, color: const Color(0xFFE8D9C0)),
                     const SizedBox(height: 20),
                     _labeledField("Inspector Name", _inspectorNameCtrl),
                     const SizedBox(height: 30),
@@ -309,18 +335,18 @@ class _SignOffScreenState extends State<SignOffScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: const Color(0xFFD1D5DB)),
-                          borderRadius: BorderRadius.circular(4),
+                          color: const Color(0xFFFDF8ED),
+                          border: Border.all(color: const Color(0xFFDECBAB)),
+                          borderRadius: BorderRadius.circular(10),
                         ),
                         child: Row(
                           children: [
                             Text(_fmtDate(_completionDate),
                                 style: const TextStyle(
-                                    fontSize: 14, color: Color(0xFF111111))),
+                                    fontSize: 14, color: Color(0xFF2E1F12))),
                             const Spacer(),
                             const Icon(Icons.calendar_month,
-                                size: 18, color: Color(0xFF1A2A5E)),
+                                size: 18, color: Color(0xFF5C2E0E)),
                           ],
                         ),
                       ),
@@ -381,17 +407,17 @@ class _SignOffScreenState extends State<SignOffScreen> {
               style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A2A5E))),
+                  color: Color(0xFF5C2E0E))),
         ),
         Expanded(
           child: TextField(
             controller: ctrl,
             decoration: InputDecoration(
               filled: true,
-              fillColor: Colors.white,
+              fillColor: const Color(0xFFFDF8ED),
               border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(4),
-                borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFDECBAB)),
               ),
               contentPadding:
               const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -407,16 +433,16 @@ class _SignOffScreenState extends State<SignOffScreen> {
       style: const TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF1A2A5E)));
+          color: Color(0xFF5C2E0E)));
 
   Widget _clearButton({required VoidCallback onTap}) {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFFF6B00),
+        backgroundColor: const Color(0xFFE8630A),
         foregroundColor: Colors.white,
         minimumSize: const Size(90, 36),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         textStyle:
         const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
       ),
@@ -428,9 +454,18 @@ class _SignOffScreenState extends State<SignOffScreen> {
     return Container(
       width: 450,
       height: 200,
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        color: const Color(0xFFFDF8ED),
+        border: Border.all(color: const Color(0xFFDECBAB), width: 1.4),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF7A3A12).withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: GestureDetector(
         onPanStart: (d) => setState(() => strokes.add(d.localPosition)),
@@ -448,11 +483,13 @@ class _SignOffScreenState extends State<SignOffScreen> {
       {required String title, String? subtitle, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: const Color(0xFFD1D5DB)),
+          color: const Color(0xFFFDF8ED),
+          border: Border.all(color: const Color(0xFFDECBAB)),
+          borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -462,7 +499,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                 style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A2A5E))),
+                    color: Color(0xFF5C2E0E))),
             if (subtitle != null) ...[
               const SizedBox(height: 4),
               Text(subtitle,
@@ -470,7 +507,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                   style: const TextStyle(
                       fontSize: 12,
                       fontStyle: FontStyle.italic,
-                      color: Color(0xFFFF6B00))),
+                      color: Color(0xFFE8630A))),
             ],
           ],
         ),
@@ -482,10 +519,10 @@ class _SignOffScreenState extends State<SignOffScreen> {
     return ElevatedButton(
       onPressed: onTap,
       style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFFF6B00),
+        backgroundColor: const Color(0xFFE8630A),
         foregroundColor: Colors.white,
         minimumSize: const Size(100, 42),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         textStyle:
         const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
       ),
@@ -501,7 +538,7 @@ class _SignaturePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF111111)
+      ..color = const Color(0xFF2E1F12)
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 2.5
       ..style = PaintingStyle.stroke;

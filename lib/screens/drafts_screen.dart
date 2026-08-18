@@ -5,6 +5,14 @@ import '../api_service.dart';
 import '../offline_store.dart';
 import 'inspection_launcher.dart';
 
+// ===== RightKnot maritime palette =====
+const _kTopBar = Color(0xFFFAF3E7);      // cream top strip
+const _kCard = Color(0xFFFDF8ED);        // card cream
+const _kBrown = Color(0xFF3D2817);
+const _kBrownSoft = Color(0xFF8A6A4E);
+const _kOrange = Color(0xFFE8630A);
+const _kDarkBtn = Color(0xFF241008);     // dark brown Sync Now button
+
 class DraftsScreen extends StatefulWidget {
   const DraftsScreen({super.key});
   @override
@@ -64,38 +72,72 @@ class _DraftsScreenState extends State<DraftsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.foam,
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator(color: AppColors.signal))
-            : RefreshIndicator(
-          onRefresh: _loadData,
-          color: AppColors.signal,
-          child: ConstrainedContent(
-            child: ListView(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.symmetric(horizontal: Responsive.pagePad(context)),
-              children: [
-                const SizedBox(height: 14),
-                _PageHeader(
-                  hasDrafts: _drafts.isNotEmpty || _pending > 0,
-                  pending: _pending,
-                  syncing: _syncing,
-                  onSync: _syncNow,
-                ),
-                const SizedBox(height: 18),
-                _HowToUseCard(open: _helpOpen, onToggle: () => setState(() => _helpOpen = !_helpOpen)),
-                const SizedBox(height: 20),
-                if (_drafts.isEmpty)
-                  const _EmptyState()
-                else
-                  ..._drafts.map((a) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _DraftCard(assignment: a, onChanged: _loadData),
-                  )),
-                const SizedBox(height: 16),
-              ],
+      body: Container(
+        // Full-screen ship background
+        color: const Color(0xFF241008),
+        child: Container(
+          decoration: const BoxDecoration(
+            image: DecorationImage(
+              image: NetworkImage('https://i.ibb.co/x8GFttBW/tama66-city-9296128.jpg'),
+              fit: BoxFit.cover,
             ),
+          ),
+          child: Column(
+            children: [
+              // ===== Cream top bar strip =====
+              Container(
+                width: double.infinity,
+                color: _kTopBar,
+                child: SafeArea(
+                  bottom: false,
+                  child: Padding(
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    child: _PageHeader(
+                      hasDrafts: _drafts.isNotEmpty || _pending > 0,
+                      pending: _pending,
+                      syncing: _syncing,
+                      onSync: _syncNow,
+                    ),
+                  ),
+                ),
+              ),
+              // ===== Content floating over the photo =====
+              Expanded(
+                child: _loading
+                    ? const Center(
+                    child: CircularProgressIndicator(color: _kOrange))
+                    : RefreshIndicator(
+                  onRefresh: _loadData,
+                  color: _kOrange,
+                  child: ConstrainedContent(
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: EdgeInsets.symmetric(
+                          horizontal: Responsive.pagePad(context)),
+                      children: [
+                        const SizedBox(height: 20),
+                        _HowToUseCard(
+                            open: _helpOpen,
+                            onToggle: () =>
+                                setState(() => _helpOpen = !_helpOpen)),
+                        const SizedBox(height: 20),
+                        if (_drafts.isEmpty)
+                          const _EmptyState()
+                        else
+                          ..._drafts.map((a) => Padding(
+                            padding:
+                            const EdgeInsets.only(bottom: 14),
+                            child: _DraftCard(
+                                assignment: a, onChanged: _loadData),
+                          )),
+                        const SizedBox(height: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -115,49 +157,63 @@ class _PageHeader extends StatelessWidget {
     return Row(
       children: [
         IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.ink),
+          icon: const Icon(Icons.arrow_back, color: _kOrange),
           onPressed: () => Navigator.of(context).maybePop(),
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         Container(
-          width: 44,
-          height: 44,
-          decoration: BoxDecoration(color: AppColors.signal, borderRadius: BorderRadius.circular(10)),
+          width: 46,
+          height: 46,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _kOrange, width: 2),
+          ),
           child: Image.network(
             'https://i.ibb.co/8g7pqvvr/knot.png',
             fit: BoxFit.contain,
-            errorBuilder: (_, __, ___) => const Icon(Icons.anchor, color: Colors.white, size: 24),
+            errorBuilder: (_, __, ___) => const Icon(Icons.anchor, color: _kOrange, size: 24),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 14),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Offline Drafts', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppColors.ink)),
+              const Text('Offline Drafts',
+                  style: TextStyle(
+                      fontFamily: 'Georgia',
+                      fontFamilyFallback: ['Times New Roman', 'serif'],
+                      fontSize: 21,
+                      fontWeight: FontWeight.w800,
+                      color: _kBrown)),
               if (pending > 0)
-                Text('$pending pending sync', style: const TextStyle(fontSize: 12, color: AppColors.inkSoft)),
+                Text('$pending pending sync',
+                    style: const TextStyle(fontSize: 12, color: _kBrownSoft)),
             ],
           ),
         ),
+        // Dark brown "Sync Now" with orange icon + text
         ElevatedButton.icon(
           onPressed: hasDrafts && !syncing ? onSync : null,
           icon: syncing
-              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-              : const Icon(Icons.sync, size: 18),
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: _kOrange))
+              : const Icon(Icons.sync, size: 18, color: _kOrange),
           label: Text(syncing ? 'Syncing…' : 'Sync Now'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.navy,
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: AppColors.inkSoft.withValues(alpha: .5),
-            disabledForegroundColor: Colors.white,
-            minimumSize: const Size(120, 44),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            backgroundColor: _kDarkBtn,
+            foregroundColor: _kOrange,
+            disabledBackgroundColor: _kDarkBtn.withOpacity(0.4),
+            disabledForegroundColor: const Color(0xFFCB9A6C),
+            elevation: 0,
+            minimumSize: const Size(130, 46),
+            padding: const EdgeInsets.symmetric(horizontal: 18),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           ),
         ),
       ],
@@ -174,23 +230,34 @@ class _HowToUseCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(18),
             onTap: onToggle,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  const Icon(Icons.menu_book_outlined, size: 20, color: AppColors.ink),
+                  const Icon(Icons.menu_book, size: 20, color: _kOrange),
                   const SizedBox(width: 10),
-                  const Expanded(child: Text('How to use', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800))),
-                  Icon(open ? Icons.expand_less : Icons.expand_more, color: AppColors.inkSoft),
+                  const Expanded(
+                      child: Text('How to use',
+                          style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w800,
+                              color: _kBrown))),
+                  Icon(open ? Icons.expand_less : Icons.expand_more, color: _kBrownSoft),
                 ],
               ),
             ),
@@ -201,7 +268,7 @@ class _HowToUseCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Divider(color: AppColors.line, height: 1),
+                  const Divider(color: Color(0xFFE8D9C0), height: 1),
                   const SizedBox(height: 16),
                   _sectionTitle('What this page is for'),
                   const SizedBox(height: 6),
@@ -225,8 +292,8 @@ class _HowToUseCard extends StatelessWidget {
     );
   }
 
-  Widget _sectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800));
-  Widget _para(String t) => Text(t, style: const TextStyle(fontSize: 13, height: 1.5, color: AppColors.inkSoft));
+  Widget _sectionTitle(String t) => Text(t, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: _kBrown));
+  Widget _para(String t) => Text(t, style: const TextStyle(fontSize: 13, height: 1.5, color: _kBrownSoft));
   Widget _numItem(int n, String t, {List<String> boldWords = const []}) {
     final spans = <InlineSpan>[TextSpan(text: '$n. ')];
     var remaining = t;
@@ -240,7 +307,7 @@ class _HowToUseCard extends StatelessWidget {
     spans.add(TextSpan(text: remaining));
     return Padding(
       padding: const EdgeInsets.only(bottom: 4),
-      child: RichText(text: TextSpan(style: const TextStyle(fontSize: 13, height: 1.55, color: AppColors.inkSoft), children: spans)),
+      child: RichText(text: TextSpan(style: const TextStyle(fontSize: 13, height: 1.55, color: _kBrownSoft), children: spans)),
     );
   }
 
@@ -249,8 +316,8 @@ class _HowToUseCard extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(padding: EdgeInsets.only(top: 6, right: 10), child: Icon(Icons.circle, size: 5, color: AppColors.inkSoft)),
-        Expanded(child: Text(t, style: const TextStyle(fontSize: 13, height: 1.55, color: AppColors.inkSoft))),
+        const Padding(padding: EdgeInsets.only(top: 6, right: 10), child: Icon(Icons.circle, size: 5, color: _kBrownSoft)),
+        Expanded(child: Text(t, style: const TextStyle(fontSize: 13, height: 1.55, color: _kBrownSoft))),
       ],
     ),
   );
@@ -266,11 +333,17 @@ class _DraftCard extends StatelessWidget {
     final a = assignment;
     final pending = a['_pending_sync'] == true;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.line),
+        color: _kCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -279,15 +352,27 @@ class _DraftCard extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(a['vessel'] ?? 'Unknown',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontFamilyFallback: ['Times New Roman', 'serif'],
+                        fontSize: 19,
+                        fontWeight: FontWeight.w800,
+                        color: _kBrown),
                     overflow: TextOverflow.ellipsis),
               ),
               if (pending)
                 Container(
                   margin: const EdgeInsets.only(right: 8),
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(20)),
-                  child: const Text('Pending sync', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Color(0xFF92400E))),
+                  decoration: BoxDecoration(
+                      color: const Color(0xFFF7E3D2),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: const Color(0xFFE8C4A6))),
+                  child: const Text('Pending sync',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: _kOrange)),
                 ),
               OutlinedButton(
                 onPressed: () async {
@@ -295,11 +380,11 @@ class _DraftCard extends StatelessWidget {
                   onChanged();
                 },
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.ink,
-                  side: const BorderSide(color: AppColors.line),
-                  minimumSize: const Size(90, 40),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  foregroundColor: _kOrange,
+                  side: const BorderSide(color: _kOrange, width: 1.3),
+                  minimumSize: const Size(100, 44),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                 ),
                 child: const Text('Resume'),
               ),
@@ -308,11 +393,11 @@ class _DraftCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.description_outlined, size: 14, color: AppColors.inkSoft),
-              const SizedBox(width: 4),
+              const Icon(Icons.star_border, size: 16, color: _kOrange),
+              const SizedBox(width: 5),
               Flexible(
                 child: Text(a['template'] ?? '—',
-                    style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
+                    style: const TextStyle(fontSize: 13, color: _kBrownSoft),
                     overflow: TextOverflow.ellipsis),
               ),
             ],
@@ -328,7 +413,19 @@ class _EmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 24),
+      padding: const EdgeInsets.all(24),
+      margin: const EdgeInsets.symmetric(vertical: 30),
+      decoration: BoxDecoration(
+        color: _kCard,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       alignment: Alignment.center,
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -336,13 +433,19 @@ class _EmptyState extends StatelessWidget {
           Container(
             width: 72,
             height: 72,
-            decoration: BoxDecoration(color: AppColors.pass.withValues(alpha: .12), shape: BoxShape.circle),
-            child: const Icon(Icons.check_circle, color: AppColors.pass, size: 40),
+            decoration: const BoxDecoration(color: Color(0xFFE8EDD6), shape: BoxShape.circle),
+            child: const Icon(Icons.check_circle, color: Color(0xFF7A8C3C), size: 40),
           ),
           const SizedBox(height: 16),
-          const Text('All synced', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const Text('All synced',
+              style: TextStyle(
+                  fontFamily: 'Georgia',
+                  fontFamilyFallback: ['Times New Roman', 'serif'],
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: _kBrown)),
           const SizedBox(height: 4),
-          const Text('No offline drafts pending', style: TextStyle(color: AppColors.inkSoft, fontSize: 14)),
+          const Text('No offline drafts pending', style: TextStyle(color: _kBrownSoft, fontSize: 14)),
         ],
       ),
     );

@@ -116,7 +116,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text('This image appears as the background on the report cover page.',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF8A6A4E))),
                 const SizedBox(height: 12),
                 if (_coverImage.isNotEmpty)
                   ClipRRect(
@@ -275,7 +275,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
     final isWide = MediaQuery.of(context).size.width >= 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: const Color(0xFFF2EBDD),
       body: Column(
         children: [
           _topBar(),
@@ -338,8 +338,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFDDDDDD), width: 1)),
+        color: const Color(0xFFFDF8ED),
+        border: Border(bottom: BorderSide(color: Color(0xFFE8D9C0), width: 1)),
       ),
       child: SafeArea(
         bottom: false,
@@ -358,13 +358,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF111111)),
+                      color: Color(0xFF2E1F12)),
                   overflow: TextOverflow.ellipsis),
             ),
             const SizedBox(width: 12),
             Text('$_answered/$_total answered',
                 style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF6B7280))),
+                    fontSize: 13, color: Color(0xFF8A6A4E))),
             const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AiAssistantScreen())),
@@ -379,12 +379,12 @@ class _InspectionScreenState extends State<InspectionScreen> {
             OutlinedButton.icon(
               onPressed: _openCoverDialog,
               icon: Icon(Icons.image_outlined, size: 16,
-                  color: _coverImage.isEmpty ? const Color(0xFF6B7280) : const Color(0xFFFF6B00)),
+                  color: _coverImage.isEmpty ? const Color(0xFF8A6A4E) : const Color(0xFFFF6B00)),
               label: Text(_coverImage.isEmpty ? 'Vessel Image' : 'Vessel Image ✓',
-                  style: TextStyle(fontSize: 12, color: _coverImage.isEmpty ? const Color(0xFF6B7280) : const Color(0xFFFF6B00))),
+                  style: TextStyle(fontSize: 12, color: _coverImage.isEmpty ? const Color(0xFF8A6A4E) : const Color(0xFFFF6B00))),
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(0, 40),
-                side: BorderSide(color: _coverImage.isEmpty ? const Color(0xFFDDDDDD) : const Color(0xFFFF6B00)),
+                side: BorderSide(color: _coverImage.isEmpty ? const Color(0xFFE8D9C0) : const Color(0xFFFF6B00)),
               ),
             ),
             const SizedBox(width: 8),
@@ -411,21 +411,31 @@ class _InspectionScreenState extends State<InspectionScreen> {
   // ═══════════════ LEFT PANEL ═══════════════
   Widget _leftPanel() {
     return Container(
-      color: const Color(0xFF1A2A5E),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [Color(0xFF241008), Color(0xFF3A1D0C)],
+        ),
+      ),
       child: Column(
         children: [
           Container(
-            color: const Color(0xFFFF6B00),
+            color: const Color(0xFF1C0D06),
             padding: const EdgeInsets.only(left: 14),
             child: Row(
               children: [
+                const Icon(Icons.anchor, color: Color(0xFFE8630A), size: 16),
+                const SizedBox(width: 7),
                 const Expanded(
                   child: Text('RIGHTKNOT',
                       style: TextStyle(
-                          color: Colors.white,
+                          fontFamily: 'Georgia',
+                          fontFamilyFallback: ['Times New Roman', 'serif'],
+                          color: Color(0xFFF5EBDD),
                           fontWeight: FontWeight.w800,
-                          fontSize: 12,
-                          letterSpacing: 1)),
+                          fontSize: 13,
+                          letterSpacing: 1.5)),
                 ),
                 _tabButton('sections', 'Sections'),
                 _tabButton('all', "All Q's"),
@@ -459,21 +469,16 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return GestureDetector(
       onTap: () => setState(() => _leftTab = id),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
+        margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: active
-              ? Colors.black.withOpacity(0.25)
-              : Colors.black.withOpacity(0.1),
-          border: Border(
-            left: const BorderSide(color: Colors.white24, width: 1),
-            bottom: BorderSide(
-                color: active ? Colors.white : Colors.transparent, width: 2),
-          ),
+          color: active ? const Color(0xFFE8630A) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Text(label,
             style: TextStyle(
-                color: active ? Colors.white : Colors.white70,
-                fontSize: 10,
+                color: active ? Colors.white : const Color(0xFFCBA87E),
+                fontSize: 11,
                 fontWeight: FontWeight.w700)),
       ),
     );
@@ -517,7 +522,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                           fontWeight: FontWeight.w700,
                           color: isActive
                               ? col.text
-                              : const Color(0xFF94A3B8),
+                              : const Color(0xFFD9B98F),
                           height: 1.4)),
                 ),
                 if (s.complete)
@@ -530,7 +535,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                     isExpanded
                         ? Icons.keyboard_arrow_up
                         : Icons.keyboard_arrow_down,
-                    color: const Color(0xFF475569),
+                    color: const Color(0xFFC49A6C),
                     size: 14),
               ],
             ),
@@ -581,11 +586,11 @@ class _InspectionScreenState extends State<InspectionScreen> {
           ansText = 'No';
           break;
         case AnswerValue.na:
-          ansColor = const Color(0xFF94A3B8);
+          ansColor = const Color(0xFFD9B98F);
           ansText = 'N/A';
           break;
         case AnswerValue.nv:
-          ansColor = const Color(0xFF94A3B8);
+          ansColor = const Color(0xFFD9B98F);
           ansText = 'N/V';
           break;
       }
@@ -616,7 +621,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
               width: 24,
               child: Text(q.id,
                   style: const TextStyle(
-                      fontSize: 10, color: Color(0xFF475569))),
+                      fontSize: 10, color: Color(0xFFC49A6C))),
             ),
             const SizedBox(width: 8),
             Expanded(
@@ -626,8 +631,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   style: TextStyle(
                       fontSize: 11,
                       color: isActive
-                          ? const Color(0xFFE2E8F0)
-                          : const Color(0xFF64748B),
+                          ? const Color(0xFFE8D9C0)
+                          : const Color(0xFFCBA87E),
                       height: 1.4)),
             ),
             if (ansText != null) ...[
@@ -655,7 +660,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
   // ═══════════════ MIDDLE PANEL ═══════════════
   Widget _middlePanel() {
     return Container(
-      color: const Color(0xFFF0F2F5),
+      color: const Color(0xFFF2EBDD),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: _buildQuestionArea(),
@@ -673,13 +678,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
         child: Center(
           child: Column(
             children: [
-              Icon(Icons.arrow_back, size: 40, color: Color(0xFF9CA3AF)),
+              Icon(Icons.arrow_back, size: 40, color: Color(0xFFB59D7E)),
               SizedBox(height: 12),
               Text('Select a question from the left panel',
                   style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF9CA3AF))),
+                      color: Color(0xFFB59D7E))),
             ],
           ),
         ),
@@ -695,16 +700,18 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
   Widget _buildGeneralInfoLayout(Section s) {
     return Container(
-      color: Colors.white,
+      color: const Color(0xFFFDF8ED),
       padding: const EdgeInsets.all(30),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(s.title,
               style: const TextStyle(
-                  fontSize: 22,
+                  fontFamily: 'Georgia',
+                  fontFamilyFallback: ['Times New Roman', 'serif'],
+                  fontSize: 26,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFFFF6B00))),
+                  color: Color(0xFFE8630A))),
           const SizedBox(height: 30),
           ...s.questions.map((q) => _buildGeneralInfoQuestion(q)),
           const SizedBox(height: 20),
@@ -725,14 +732,14 @@ class _InspectionScreenState extends State<InspectionScreen> {
             style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A2A5E)),
+                color: Color(0xFF5C2E0E)),
             children: [
               TextSpan(text: '${q.id} ${q.text}'),
               const TextSpan(text: ': '),
               if (q.required)
                 const TextSpan(
                     text: '(M)',
-                    style: TextStyle(color: Color(0xFF1A2A5E))),
+                    style: TextStyle(color: Color(0xFF5C2E0E))),
             ],
           ),
         ),
@@ -751,11 +758,11 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 }),
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: const Color(0xFFFDF8ED),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(10),
                     borderSide:
-                    const BorderSide(color: Color(0xFF1A2A5E)),
+                    const BorderSide(color: Color(0xFF5C2E0E)),
                   ),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 12),
@@ -766,41 +773,42 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF3F4F6),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                  borderRadius: BorderRadius.circular(4),
+                  color: const Color(0xFFF3E7D3),
+                  border: Border.all(color: const Color(0xFFE8D9C0)),
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                     q.comment.isEmpty ? '(No value)' : q.comment,
                     style: TextStyle(
                         fontSize: 14,
                         color: q.comment.isEmpty
-                            ? const Color(0xFF9CA3AF)
-                            : const Color(0xFF111111))),
+                            ? const Color(0xFFB59D7E)
+                            : const Color(0xFF2E1F12))),
               ),
             ),
             const SizedBox(width: 16),
             SizedBox(
               width: 150,
-              height: 44,
-              child: ElevatedButton(
+              height: 48,
+              child: OutlinedButton.icon(
                 onPressed: () => setState(() {
                   _editingField[q.id] = !isEditing;
                   if (isEditing && q.comment.isNotEmpty) {
                     q.answer = AnswerValue.pass;
                   }
                 }),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFF3F4F6),
-                  foregroundColor: const Color(0xFF111111),
-                  elevation: 0,
-                  side: const BorderSide(color: Color(0xFFE5E7EB)),
+                icon: Icon(isEditing ? Icons.check : Icons.edit,
+                    size: 17, color: const Color(0xFFE8630A)),
+                label: Text(isEditing ? 'Done' : 'Edit'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFDF8ED),
+                  foregroundColor: const Color(0xFFE8630A),
+                  side: const BorderSide(color: Color(0xFFE8630A), width: 1.3),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(4)),
+                      borderRadius: BorderRadius.circular(10)),
                   textStyle: const TextStyle(
-                      fontSize: 14, fontWeight: FontWeight.w600),
+                      fontSize: 15, fontWeight: FontWeight.w700),
                 ),
-                child: Text(isEditing ? 'Done' : 'Edit'),
               ),
             ),
           ],
@@ -810,90 +818,66 @@ class _InspectionScreenState extends State<InspectionScreen> {
             style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A2A5E))),
+                color: Color(0xFF5C2E0E))),
         const SizedBox(height: 8),
         TextField(
           maxLines: 4,
+          maxLength: 1000,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: const Color(0xFFFDF8ED),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(4),
-              borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFDECBAB)),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFDECBAB)),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE8630A), width: 1.4),
             ),
             contentPadding: const EdgeInsets.all(12),
           ),
           style: const TextStyle(fontSize: 13),
         ),
         const SizedBox(height: 20),
-        Container(height: 1, color: const Color(0xFFE5E7EB)),
+        Container(height: 1, color: const Color(0xFFE8D9C0)),
         const SizedBox(height: 20),
       ],
     );
   }
 
   Widget _buildStandardQuestionLayout(Section s, Question q) {
-    final sectionIdx = widget.assignment.sections.indexOf(s);
-    final col = _sectionColors[sectionIdx % _sectionColors.length];
     final selected = q.answer;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: BoxDecoration(
-            color: col.bg,
-            border: Border(left: BorderSide(color: col.border, width: 4)),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(s.title,
-                  style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: col.text)),
-              const SizedBox(height: 6),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.5),
-                      border: Border.all(color: col.border),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(q.id,
-                        style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            color: col.border)),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(q.text,
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF1A2A5E),
-                            height: 1.5)),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
+        // Section title (orange serif, like General Information page)
+        Text(s.title,
+            style: const TextStyle(
+                fontFamily: 'Georgia',
+                fontFamilyFallback: ['Times New Roman', 'serif'],
+                fontSize: 26,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFFE8630A))),
+        const SizedBox(height: 20),
+        // Question heading: "2.1.1  Are all fire extinguishers..." plain on cream
+        Text('${q.id}  ${q.text}',
+            style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF3D2817),
+                height: 1.5)),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            color: const Color(0xFFFDF8ED),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE8D9C0)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -902,7 +886,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF374151))),
+                      color: Color(0xFF4A3624))),
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -926,7 +910,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFFFF5F5),
               border: Border.all(color: const Color(0xFFFCA5A5)),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -942,9 +926,9 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   decoration: InputDecoration(
                     hintText: 'Enter observation details...',
                     filled: true,
-                    fillColor: Colors.white,
+                    fillColor: const Color(0xFFFDF8ED),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(4),
+                      borderRadius: BorderRadius.circular(10),
                       borderSide: const BorderSide(color: Color(0xFFFCA5A5)),
                     ),
                     contentPadding: const EdgeInsets.all(10),
@@ -958,9 +942,9 @@ class _InspectionScreenState extends State<InspectionScreen> {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFFE5E7EB)),
+            color: const Color(0xFFFDF8ED),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE8D9C0)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -971,7 +955,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                       style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: Color(0xFF1A2A5E))),
+                          color: Color(0xFF5C2E0E))),
                   if (selected == AnswerValue.na ||
                       selected == AnswerValue.nv)
                     const Text(' *',
@@ -993,14 +977,23 @@ class _InspectionScreenState extends State<InspectionScreen> {
               const SizedBox(height: 10),
               TextField(
                 maxLines: 4,
+                maxLength: 1000,
                 controller: _commentCtrl(q),
                 onChanged: (v) => q.comment = v,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.white,
+                  fillColor: const Color(0xFFFDF8ED),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(4),
-                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFDECBAB)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFDECBAB)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE8630A), width: 1.4),
                   ),
                   contentPadding: const EdgeInsets.all(12),
                 ),
@@ -1018,7 +1011,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                     const Spacer(),
                     InkWell(
                       onTap: () => setState(() => _aiAnswers.remove(q.id)),
-                      child: const Icon(Icons.close, size: 16, color: Color(0xFF9CA3AF)),
+                      child: const Icon(Icons.close, size: 16, color: Color(0xFFB59D7E)),
                     ),
                   ],
                 ),
@@ -1065,17 +1058,17 @@ class _InspectionScreenState extends State<InspectionScreen> {
                                 },
                                 child: Row(
                                   children: const [
-                                    Icon(Icons.copy, size: 13, color: Color(0xFF1A2A5E)),
+                                    Icon(Icons.copy, size: 13, color: Color(0xFF5C2E0E)),
                                     SizedBox(width: 3),
                                     Text('Copy',
-                                        style: TextStyle(fontSize: 11, color: Color(0xFF1A2A5E), fontWeight: FontWeight.w700)),
+                                        style: TextStyle(fontSize: 11, color: Color(0xFF5C2E0E), fontWeight: FontWeight.w700)),
                                   ],
                                 ),
                               ),
                             ],
                           ),
                           const SizedBox(height: 8),
-                          Text(body, style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF111111))),
+                          Text(body, style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF2E1F12))),
                         ],
                       ),
                     );
@@ -1099,9 +1092,9 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: const Color(0xFFFDF8ED),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE8D9C0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1110,7 +1103,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w700,
-                  color: Color(0xFF1A2A5E))),
+                  color: Color(0xFF5C2E0E))),
           const SizedBox(height: 14),
           // Existing photos grid
           if (q.photos.isNotEmpty) ...[
@@ -1147,8 +1140,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
       padding: const EdgeInsets.all(16),
       height: 100,
       decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: const Color(0xFFFDF8ED),
+        border: Border.all(color: const Color(0xFFE8D9C0)),
       ),
       child: Row(
         children: [
@@ -1160,7 +1153,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 44),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+                    borderRadius: BorderRadius.circular(10)),
                 textStyle: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700),
               ),
@@ -1176,7 +1169,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 foregroundColor: Colors.white,
                 minimumSize: const Size(0, 44),
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(4)),
+                    borderRadius: BorderRadius.circular(10)),
                 textStyle: const TextStyle(
                     fontSize: 13, fontWeight: FontWeight.w700),
               ),
@@ -1218,30 +1211,30 @@ class _InspectionScreenState extends State<InspectionScreen> {
   Widget _photoCard(Question q, EvidencePhoto photo, int idx) {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: const Color(0xFFE8D9C0)),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(
             child: Container(
-              color: const Color(0xFFF3F4F6),
+              color: const Color(0xFFF3E7D3),
               alignment: Alignment.center,
               child: photo.url.startsWith('data:image')
                   ? Image.memory(base64Decode(photo.url.split(',').last), fit: BoxFit.cover, width: double.infinity,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 40, color: Color(0xFF9CA3AF)))
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, size: 40, color: Color(0xFFB59D7E)))
                   : photo.url.startsWith('http')
                   ? Image.network(photo.url, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined, size: 40, color: Color(0xFF9CA3AF)))
-                  : const Icon(Icons.image_outlined, size: 40, color: Color(0xFF9CA3AF)),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.image_outlined, size: 40, color: Color(0xFFB59D7E)))
+                  : const Icon(Icons.image_outlined, size: 40, color: Color(0xFFB59D7E)),
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
             decoration: const BoxDecoration(
               border: Border(
-                  top: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+                  top: BorderSide(color: Color(0xFFE8D9C0), width: 1)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -1309,13 +1302,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
                       const Spacer(),
                       InkWell(
                         onTap: () => setState(() => _photoAiAnswers.remove(photo.id)),
-                        child: const Icon(Icons.close, size: 13, color: Color(0xFF9CA3AF)),
+                        child: const Icon(Icons.close, size: 13, color: Color(0xFFB59D7E)),
                       ),
                     ],
                   ),
                   const SizedBox(height: 6),
                   Text(_photoAiAnswers[photo.id] ?? '',
-                      style: const TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF111111))),
+                      style: const TextStyle(fontSize: 12, height: 1.4, color: Color(0xFF2E1F12))),
                 ],
               ),
             ),
@@ -1358,28 +1351,30 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return Row(
       children: [
         Expanded(
-          child: ElevatedButton(
+          child: ElevatedButton.icon(
             onPressed: prev == null
                 ? null
                 : () => setState(() {
               _activeSectionId = prev.sectionId;
               _activeQuestionId = prev.q.id;
             }),
+            icon: const Icon(Icons.arrow_back, size: 17),
+            label: const Text('Previous'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B00),
-              foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFFE5E7EB),
-              disabledForegroundColor: const Color(0xFF9CA3AF),
-              minimumSize: const Size(0, 44),
+              backgroundColor: const Color(0xFFF9E3CD),
+              foregroundColor: const Color(0xFF8A4A1B),
+              disabledBackgroundColor: const Color(0xFFF0E6D2),
+              disabledForegroundColor: const Color(0xFFB59D7E),
+              elevation: 0,
+              minimumSize: const Size(0, 50),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
+                  borderRadius: BorderRadius.circular(12)),
               textStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w700),
+                  fontSize: 15, fontWeight: FontWeight.w700),
             ),
-            child: const Text('← Previous'),
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
             onPressed: next == null
@@ -1389,15 +1384,16 @@ class _InspectionScreenState extends State<InspectionScreen> {
               _activeQuestionId = next.q.id;
             }),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFFF6B00),
+              backgroundColor: const Color(0xFFE8630A),
               foregroundColor: Colors.white,
-              minimumSize: const Size(0, 44),
+              elevation: 0,
+              minimumSize: const Size(0, 50),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(4)),
+                  borderRadius: BorderRadius.circular(12)),
               textStyle: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w700),
+                  fontSize: 15, fontWeight: FontWeight.w700),
             ),
-            child: Text(next != null ? 'Next →' : 'Sign Off →'),
+            child: Text(next != null ? 'Next  →' : 'Sign Off  →'),
           ),
         ),
       ],
@@ -1411,19 +1407,19 @@ class _InspectionScreenState extends State<InspectionScreen> {
     Color textColor;
     switch (value) {
       case AnswerValue.pass:
-        borderColor = isSel ? const Color(0xFF22C55E) : const Color(0xFFD1D5DB);
+        borderColor = isSel ? const Color(0xFF22C55E) : const Color(0xFFDECBAB);
         bgColor = isSel ? const Color(0xFFDCFCE7) : Colors.white;
-        textColor = isSel ? const Color(0xFF166534) : const Color(0xFF6B7280);
+        textColor = isSel ? const Color(0xFF166534) : const Color(0xFF8A6A4E);
         break;
       case AnswerValue.fail:
-        borderColor = isSel ? const Color(0xFFEF4444) : const Color(0xFFD1D5DB);
+        borderColor = isSel ? const Color(0xFFEF4444) : const Color(0xFFDECBAB);
         bgColor = isSel ? const Color(0xFFFEE2E2) : Colors.white;
-        textColor = isSel ? const Color(0xFF991B1B) : const Color(0xFF6B7280);
+        textColor = isSel ? const Color(0xFF991B1B) : const Color(0xFF8A6A4E);
         break;
       default:
-        borderColor = isSel ? const Color(0xFF9CA3AF) : const Color(0xFFD1D5DB);
-        bgColor = isSel ? const Color(0xFFF3F4F6) : Colors.white;
-        textColor = isSel ? const Color(0xFF374151) : const Color(0xFF6B7280);
+        borderColor = isSel ? const Color(0xFFB59D7E) : const Color(0xFFDECBAB);
+        bgColor = isSel ? const Color(0xFFF3E7D3) : Colors.white;
+        textColor = isSel ? const Color(0xFF4A3624) : const Color(0xFF8A6A4E);
     }
 
     return Expanded(
@@ -1440,7 +1436,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
           decoration: BoxDecoration(
             color: bgColor,
             border: Border.all(color: borderColor, width: isSel ? 2 : 1.5),
-            borderRadius: BorderRadius.circular(4),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Text(label,
               style: TextStyle(
@@ -1456,14 +1452,14 @@ class _InspectionScreenState extends State<InspectionScreen> {
   Widget _rightPanel() {
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFC),
-        border: Border(left: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
+        color: Color(0xFFF7EFE0),
+        border: Border(left: BorderSide(color: Color(0xFFE8D9C0), width: 1)),
       ),
       child: Column(
         children: [
           Container(
             width: double.infinity,
-            color: const Color(0xFF1A2A5E),
+            color: const Color(0xFF5C2E0E),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1477,7 +1473,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 SizedBox(height: 2),
                 Text('Reference for selected question',
                     style: TextStyle(
-                        fontSize: 11, color: Color(0xFF64748B))),
+                        fontSize: 11, color: Color(0xFFCBA87E))),
               ],
             ),
           ),
@@ -1494,7 +1490,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text('No question selected',
-              style: TextStyle(fontSize: 13, color: Color(0xFF9CA3AF))),
+              style: TextStyle(fontSize: 13, color: Color(0xFFB59D7E))),
         ),
       );
     }
@@ -1507,7 +1503,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFFE0E7FF),
+              color: const Color(0xFFF9E3CD),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Column(
@@ -1517,12 +1513,12 @@ class _InspectionScreenState extends State<InspectionScreen> {
                     style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xFF1A2A5E))),
+                        color: Color(0xFF5C2E0E))),
                 const SizedBox(height: 4),
                 Text(q.text,
                     style: const TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF374151),
+                        color: Color(0xFF4A3624),
                         height: 1.5)),
               ],
             ),
@@ -1531,7 +1527,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
           if (q.guide.isNotEmpty)
             Text(q.guide,
                 style: const TextStyle(
-                    fontSize: 13, color: Color(0xFF374151), height: 1.8))
+                    fontSize: 13, color: Color(0xFF4A3624), height: 1.8))
           else
             const Padding(
               padding: EdgeInsets.only(top: 20),
@@ -1539,7 +1535,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 child: Text('No guide available for this question.',
                     style: TextStyle(
                         fontSize: 13,
-                        color: Color(0xFF9CA3AF),
+                        color: Color(0xFFB59D7E),
                         fontStyle: FontStyle.italic)),
               ),
             ),

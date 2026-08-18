@@ -6,7 +6,11 @@ import 'history_screen.dart';
 import 'reports_screen.dart';
 import 'profile_screen.dart';
 
-const _kPrimary = Color(0xFFFF6B00);
+// ===== RightKnot maritime palette =====
+const _kOrange = Color(0xFFF08A3C);      // active icon/text (bright orange)
+const _kInactive = Color(0xFFE8D9C0);    // cream inactive icons/text
+const _kActiveBox = Color(0xFF7A3A12);   // active tab box fill (warm brown-orange)
+const _kActiveBorder = Color(0xFFE8630A);
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key});
@@ -45,18 +49,23 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          // Dark brown gradient like the mockup (lighter left, darker right)
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Color(0xFF3A1D0C), Color(0xFF241008)],
+          ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.06),
-              blurRadius: 8,
-              offset: const Offset(0, -2),
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 12,
+              offset: const Offset(0, -3),
             ),
           ],
         ),
         child: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_navItems.length, (index) {
@@ -65,23 +74,34 @@ class _MainShellState extends State<MainShell> {
                 return Expanded(
                   child: InkWell(
                     onTap: () => setState(() => _currentIndex = index),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: selected
+                          ? BoxDecoration(
+                        color: _kActiveBox.withOpacity(0.55),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: _kActiveBorder, width: 1.2),
+                      )
+                          : null,
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             selected ? item.iconActive : item.icon,
-                            color: selected ? _kPrimary : const Color(0xFF9CA3AF),
+                            color: selected ? _kOrange : _kInactive,
                             size: 24,
                           ),
                           const SizedBox(height: 4),
                           Text(
                             item.label,
                             style: TextStyle(
-                              fontSize: 11,
-                              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                              color: selected ? _kPrimary : const Color(0xFF9CA3AF),
+                              fontSize: 12,
+                              fontWeight:
+                              selected ? FontWeight.w800 : FontWeight.w500,
+                              color: selected ? _kOrange : _kInactive,
                             ),
                           ),
                         ],

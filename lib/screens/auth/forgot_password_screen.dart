@@ -4,6 +4,8 @@ import '../../api_service.dart';
 import '_auth_shell.dart';
 import 'reset_link_sent_screen.dart';
 
+const _kOrange = Color(0xFFE8630A);
+
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
   @override
@@ -50,19 +52,40 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text('Reset your password',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800)),
+                style: TextStyle(
+                    fontFamily: 'Georgia',
+                    fontFamilyFallback: ['Times New Roman', 'serif'],
+                    fontSize: 23,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1F2A44))),
             const SizedBox(height: 6),
             Text('Enter your email to receive a reset link.',
                 style: TextStyle(fontSize: 14, color: AppColors.inkSoft, height: 1.4)),
             const SizedBox(height: 22),
             const Text('Email',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
-            const SizedBox(height: 6),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13.5, color: Color(0xFF374151))),
+            const SizedBox(height: 7),
             TextField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.mail_outline),
+              decoration: InputDecoration(
+                hintText: 'Enter your email address',
+                prefixIcon: const Icon(Icons.mail_outline, color: _kOrange, size: 20),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 14),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFF3C9A8)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: Color(0xFFF3C9A8)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _kOrange, width: 1.5),
+                ),
               ),
             ),
             if (_error != null) ...[
@@ -71,14 +94,28 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             ],
             const SizedBox(height: 20),
             NavyButton(label: 'Send Reset Link', onPressed: _send, loading: _loading),
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
+            // ── OR divider ──
+            Row(
+              children: [
+                Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 14),
+                  child: Text('OR',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF9CA3AF))),
+                ),
+                Expanded(child: Container(height: 1, color: const Color(0xFFE5E7EB))),
+              ],
+            ),
+            const SizedBox(height: 10),
             Center(
-              child: TextButton(
+              child: TextButton.icon(
                 onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.arrow_back, size: 18, color: _kOrange),
+                label: const Text('Back to Sign In'),
                 style: TextButton.styleFrom(
-                    foregroundColor: AppColors.signal,
-                    textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
-                child: const Text('Back to Sign In'),
+                    foregroundColor: _kOrange,
+                    textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
               ),
             ),
           ],
