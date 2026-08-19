@@ -219,7 +219,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                 ],
               ),
             ),
-            // Dark brown banner with RightKnot badge
+            // Dark brown banner with RightKnots badge
             Container(
               width: double.infinity,
               decoration: const BoxDecoration(
@@ -245,7 +245,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                       children: [
                         Icon(Icons.anchor, color: Colors.white, size: 16),
                         SizedBox(width: 8),
-                        Text('RIGHTKNOT',
+                        Text('RIGHTKNOTS',
                             style: TextStyle(
                                 fontFamily: 'Georgia',
                                 fontFamilyFallback: ['Times New Roman', 'serif'],

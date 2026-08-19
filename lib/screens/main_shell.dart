@@ -6,7 +6,7 @@ import 'history_screen.dart';
 import 'reports_screen.dart';
 import 'profile_screen.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kOrange = Color(0xFFF08A3C);      // active icon/text (bright orange)
 const _kInactive = Color(0xFFE8D9C0);    // cream inactive icons/text
 const _kActiveBox = Color(0xFF7A3A12);   // active tab box fill (warm brown-orange)

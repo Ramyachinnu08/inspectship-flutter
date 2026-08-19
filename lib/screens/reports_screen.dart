@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../api_service.dart';
 import 'report_launcher.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kTopBar = Color(0xFFFAF3E7);
 const _kCard = Color(0xFFFDF8ED);
 const _kBrown = Color(0xFF3D2817);
@@ -74,7 +74,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Image.network(
-                            'https://i.ibb.co/8g7pqvvr/knot.png',
+                            'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
                             fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) =>
                             const Icon(Icons.directions_boat, color: _kOrange, size: 26),

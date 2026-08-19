@@ -5,7 +5,7 @@ import '../api_service.dart';
 import '../offline_store.dart';
 import 'inspection_launcher.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kTopBar = Color(0xFFFAF3E7);      // cream top strip
 const _kCard = Color(0xFFFDF8ED);        // card cream
 const _kBrown = Color(0xFF3D2817);
@@ -78,7 +78,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
         child: Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: NetworkImage('https://i.ibb.co/x8GFttBW/tama66-city-9296128.jpg'),
+              image: NetworkImage('https://i.ibb.co/whMBS7Sw/dra.jpg'),
               fit: BoxFit.cover,
             ),
           ),
@@ -173,7 +173,7 @@ class _PageHeader extends StatelessWidget {
             border: Border.all(color: _kOrange, width: 2),
           ),
           child: Image.network(
-            'https://i.ibb.co/8g7pqvvr/knot.png',
+            'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) => const Icon(Icons.anchor, color: _kOrange, size: 24),
           ),

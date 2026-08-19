@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_theme.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kOrange = Color(0xFFE8630A);
 const _kOrangeDeep = Color(0xFFC24E08);
 const _kTitle = Color(0xFF1F2A44); // dark title over bright sky
@@ -107,7 +107,7 @@ class BrandBadge extends StatelessWidget {
         ],
       ),
       child: Image.network(
-        'https://i.ibb.co/8g7pqvvr/knot.png',
+        'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
         fit: BoxFit.contain,
         errorBuilder: (_, __, ___) =>
         const Icon(Icons.anchor, color: _kOrange, size: 40),

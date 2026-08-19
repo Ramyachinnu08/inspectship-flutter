@@ -4,7 +4,7 @@ import '../api_service.dart';
 import '../offline_store.dart';
 import 'login_screen.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kTopBar = Color(0xFFFAF3E7);
 const _kCard = Color(0xFFFDF8ED);
 const _kBrown = Color(0xFF3D2817);
@@ -14,7 +14,7 @@ const _kOrangeChip = Color(0xFFF7E3D2);
 const _kGreen = Color(0xFF4C7A3C);
 
 // ⬇️⬇️ PROFILE BACKGROUND IMAGE — send me the ibb link and I'll swap it ⬇️⬇️
-const _kBgImage = 'https://i.ibb.co/LzNnjN4C/profi.png';
+const _kBgImage = 'https://i.ibb.co/S71jfJ66/vecteezy-ai-generated-large-boat-floating-on-top-of-a-body-of-water-40265161.jpg';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -153,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Image.network(
-                            'https://i.ibb.co/8g7pqvvr/knot.png',
+                            'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
                             fit: BoxFit.contain,
                             errorBuilder: (_, __, ___) =>
                             const Icon(Icons.directions_boat, color: _kOrange, size: 24),

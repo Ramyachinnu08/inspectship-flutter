@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/models.dart';
 import '../api_service.dart';
@@ -28,6 +29,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
   String _leftTab = 'sections';
   String? _activeSectionId;
   String? _activeQuestionId;
+  final ItemScrollController _itemScroll = ItemScrollController();
   final Map<String, bool> _expanded = {};
   final Map<String, bool> _editingField = {};
 
@@ -428,14 +430,17 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 const Icon(Icons.anchor, color: Color(0xFFE8630A), size: 16),
                 const SizedBox(width: 7),
                 const Expanded(
-                  child: Text('RIGHTKNOT',
+                  child: Text('RIGHTKNOTS',
+                      maxLines: 1,
+                      overflow: TextOverflow.visible,
+                      softWrap: false,
                       style: TextStyle(
                           fontFamily: 'Georgia',
                           fontFamilyFallback: ['Times New Roman', 'serif'],
                           color: Color(0xFFF5EBDD),
                           fontWeight: FontWeight.w800,
-                          fontSize: 13,
-                          letterSpacing: 1.5)),
+                          fontSize: 11.5,
+                          letterSpacing: 0.8)),
                 ),
                 _tabButton('sections', 'Sections'),
                 _tabButton('all', "All Q's"),
@@ -597,10 +602,26 @@ class _InspectionScreenState extends State<InspectionScreen> {
     }
 
     return InkWell(
-      onTap: () => setState(() {
-        _activeSectionId = sectionId;
-        _activeQuestionId = q.id;
-      }),
+      onTap: () {
+        setState(() {
+          _activeSectionId = sectionId;
+          _activeQuestionId = q.id;
+        });
+        // jump the middle panel to this question (index 0 is the title)
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final sec = _activeSection;
+          if (sec == null || !_itemScroll.isAttached) return;
+          final idx = sec.questions.indexWhere((x) => x.id == q.id);
+          if (idx >= 0) {
+            _itemScroll.scrollTo(
+              index: idx + 1,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
+              alignment: 0.02,
+            );
+          }
+        });
+      },
       child: Container(
         padding: const EdgeInsets.fromLTRB(22, 7, 12, 7),
         decoration: BoxDecoration(
@@ -659,6 +680,56 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
   // ═══════════════ MIDDLE PANEL ═══════════════
   Widget _middlePanel() {
+    final q = _activeQuestion;
+    final s = _activeSection;
+
+    // Standard sections: lazy list — only visible questions are built,
+    // so large sections stay fast while scrolling and answering.
+    if (q != null && s != null) {
+      final count = s.questions.length;
+      return Container(
+        color: const Color(0xFFF2EBDD),
+        child: ScrollablePositionedList.builder(
+          itemScrollController: _itemScroll,
+          padding: const EdgeInsets.all(24),
+          itemCount: count + 2, // title + questions + nav buttons
+          itemBuilder: (context, i) {
+            if (i == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: Text(s.title,
+                    style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontFamilyFallback: ['Times New Roman', 'serif'],
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFE8630A))),
+              );
+            }
+            if (i == count + 1) {
+              return Padding(
+                padding: const EdgeInsets.only(top: 28, bottom: 8),
+                child: _buildNavButtons(),
+              );
+            }
+            final question = s.questions[i - 1];
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildStandardQuestionLayout(s, question),
+                if (i < count)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 26),
+                    child: Divider(
+                        color: Color(0xFFE0CBA8), height: 1, thickness: 1),
+                  ),
+              ],
+            );
+          },
+        ),
+      );
+    }
+
     return Container(
       color: const Color(0xFFF2EBDD),
       child: SingleChildScrollView(
@@ -695,7 +766,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
       return _buildGeneralInfoLayout(s);
     }
 
-    return _buildStandardQuestionLayout(s, q);
+    // Standard sections are rendered lazily in _middlePanel.
+    return const SizedBox.shrink();
   }
 
   Widget _buildGeneralInfoLayout(Section s) {
@@ -855,15 +927,6 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section title (orange serif, like General Information page)
-        Text(s.title,
-            style: const TextStyle(
-                fontFamily: 'Georgia',
-                fontFamilyFallback: ['Times New Roman', 'serif'],
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFFE8630A))),
-        const SizedBox(height: 20),
         // Question heading: "2.1.1  Are all fire extinguishers..." plain on cream
         Text('${q.id}  ${q.text}',
             style: const TextStyle(
@@ -890,13 +953,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
               const SizedBox(height: 10),
               Row(
                 children: [
-                  _answerBtn('Yes', AnswerValue.pass, selected),
+                  _answerBtn(q, 'Yes', AnswerValue.pass, selected),
                   const SizedBox(width: 8),
-                  _answerBtn('No', AnswerValue.fail, selected),
+                  _answerBtn(q, 'No', AnswerValue.fail, selected),
                   const SizedBox(width: 8),
-                  _answerBtn('N/A', AnswerValue.na, selected),
+                  _answerBtn(q, 'N/A', AnswerValue.na, selected),
                   const SizedBox(width: 8),
-                  _answerBtn('N/V', AnswerValue.nv, selected),
+                  _answerBtn(q, 'N/V', AnswerValue.nv, selected),
                 ],
               ),
             ],
@@ -1081,8 +1144,6 @@ class _InspectionScreenState extends State<InspectionScreen> {
         const SizedBox(height: 16),
         // NEW Evidence section
         _buildEvidenceSection(q),
-        const SizedBox(height: 16),
-        _buildNavButtons(),
       ],
     );
   }
@@ -1341,23 +1402,27 @@ class _InspectionScreenState extends State<InspectionScreen> {
   }
 
   Widget _buildNavButtons() {
-    final q = _activeQuestion;
-    if (q == null) return const SizedBox.shrink();
-    final all = _allFlat;
-    final currentIdx = all.indexWhere((e) => e.q.id == q.id);
-    final prev = currentIdx > 0 ? all[currentIdx - 1] : null;
-    final next = currentIdx < all.length - 1 ? all[currentIdx + 1] : null;
+    final sections = widget.assignment.sections;
+    final idx = sections.indexWhere((sec) => sec.id == _activeSectionId);
+    if (idx < 0) return const SizedBox.shrink();
+    final prevSection = idx > 0 ? sections[idx - 1] : null;
+    final nextSection = idx < sections.length - 1 ? sections[idx + 1] : null;
+
+    void goTo(Section sec) {
+      setState(() {
+        _activeSectionId = sec.id;
+        _activeQuestionId =
+        sec.questions.isNotEmpty ? sec.questions.first.id : null;
+      });
+      // jump back to the top of the new section
+      // (middle panel is a SingleChildScrollView; rebuild starts at top)
+    }
 
     return Row(
       children: [
         Expanded(
           child: ElevatedButton.icon(
-            onPressed: prev == null
-                ? null
-                : () => setState(() {
-              _activeSectionId = prev.sectionId;
-              _activeQuestionId = prev.q.id;
-            }),
+            onPressed: prevSection == null ? null : () => goTo(prevSection),
             icon: const Icon(Icons.arrow_back, size: 17),
             label: const Text('Previous'),
             style: ElevatedButton.styleFrom(
@@ -1377,12 +1442,9 @@ class _InspectionScreenState extends State<InspectionScreen> {
         const SizedBox(width: 12),
         Expanded(
           child: ElevatedButton(
-            onPressed: next == null
+            onPressed: nextSection == null
                 ? _goToSignOff
-                : () => setState(() {
-              _activeSectionId = next.sectionId;
-              _activeQuestionId = next.q.id;
-            }),
+                : () => goTo(nextSection),
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFE8630A),
               foregroundColor: Colors.white,
@@ -1393,14 +1455,14 @@ class _InspectionScreenState extends State<InspectionScreen> {
               textStyle: const TextStyle(
                   fontSize: 15, fontWeight: FontWeight.w700),
             ),
-            child: Text(next != null ? 'Next  →' : 'Sign Off  →'),
+            child: Text(nextSection != null ? 'Next  →' : 'Sign Off  →'),
           ),
         ),
       ],
     );
   }
 
-  Widget _answerBtn(String label, AnswerValue value, AnswerValue? selected) {
+  Widget _answerBtn(Question q, String label, AnswerValue value, AnswerValue? selected) {
     final isSel = selected == value;
     Color borderColor;
     Color bgColor;
@@ -1425,10 +1487,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return Expanded(
       child: InkWell(
         onTap: () => setState(() {
-          final q = _activeQuestion;
-          if (q != null) {
-            q.answer = q.answer == value ? null : value;
-          }
+          q.answer = q.answer == value ? null : value;
         }),
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),

@@ -3,7 +3,7 @@ import '../theme/app_theme.dart';
 import '../theme/responsive.dart';
 import '../api_service.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kTopBar = Color(0xFFFAF3E7);
 const _kCard = Color(0xFFFDF8ED);
 const _kBrown = Color(0xFF3D2817);
@@ -50,7 +50,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         child: Container(
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: NetworkImage('https://i.ibb.co/Lz6FBL3V/histo.png'),
+              image: NetworkImage('https://i.ibb.co/DHvybpHy/his.jpg'),
               fit: BoxFit.cover,
             ),
           ),
@@ -142,7 +142,7 @@ class _PageHeader extends StatelessWidget {
             border: Border.all(color: _kOrange, width: 2),
           ),
           child: Image.network(
-            'https://i.ibb.co/8g7pqvvr/knot.png',
+            'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
             fit: BoxFit.contain,
             errorBuilder: (_, __, ___) =>
             const Icon(Icons.anchor, color: _kOrange, size: 24),

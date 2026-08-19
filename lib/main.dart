@@ -22,7 +22,7 @@ class InspectorApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'RightKnot Inspector',
+      title: 'RightKnots Inspector',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
       home: const LoginScreen(),

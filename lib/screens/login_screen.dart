@@ -3,7 +3,7 @@ import '../api_service.dart';
 import 'main_shell.dart';
 import 'auth/forgot_password_screen.dart';
 
-// ===== RightKnot maritime palette (matches mockup) =====
+// ===== RightKnots maritime palette (matches mockup) =====
 const _kBgTop = Color(0xFF241008);      // deep dark brown (top)
 const _kBgMid = Color(0xFF4A2410);      // warm mid brown
 const _kBgBottom = Color(0xFF7A3A12);   // burnt orange glow (bottom)
@@ -118,7 +118,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                         child: Image.network(
-                          'https://i.ibb.co/8g7pqvvr/knot.png',
+                          'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
                           fit: BoxFit.contain,
                           errorBuilder: (_, __, ___) =>
                           const Icon(Icons.directions_boat, color: _kOrange, size: 32),
@@ -126,9 +126,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const SizedBox(height: 20),
 
-                      // ===== RIGHTKNOT serif title =====
+                      // ===== RIGHTKNOTS serif title =====
                       const Text(
-                        'RIGHTKNOT',
+                        'RIGHTKNOTS',
                         style: TextStyle(
                           fontFamily: 'Georgia',
                           fontFamilyFallback: ['Times New Roman', 'serif'],
@@ -339,7 +339,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           Icon(Icons.anchor, size: 15, color: _kFooterTan),
                           SizedBox(width: 7),
-                          Text('© 2026 RightKnot Shipping',
+                          Text('© 2026 RightKnots Shipping',
                               style: TextStyle(fontSize: 13, color: _kFooterTan)),
                         ],
                       ),

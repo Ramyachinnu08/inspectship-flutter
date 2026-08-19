@@ -4,7 +4,7 @@ import 'ai_assistant_screen.dart';
 import '../offline_store.dart';
 import 'inspection_launcher.dart';
 
-// ===== RightKnot maritime palette =====
+// ===== RightKnots maritime palette =====
 const _kPageBg = Color(0xFFF2EBDD);
 const _kCard = Color(0xFFFAF4E8);
 const _kCardBorder = Color(0xFFE8D9C0);
@@ -244,7 +244,7 @@ class _AssignmentsScreenState extends State<AssignmentsScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Image.network(
-                  'https://i.ibb.co/8g7pqvvr/knot.png',
+                  'https://i.ibb.co/MDqJQhv9/27453318-8b7f-442d-88ca-5b69007d4e03.png',
                   fit: BoxFit.contain,
                   errorBuilder: (_, __, ___) =>
                   const Icon(Icons.anchor, color: _kOrange, size: 26),

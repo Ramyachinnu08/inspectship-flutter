@@ -13,7 +13,17 @@ class ReportViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final all = assignment.allQuestions;
-    final noQ = all.where((q) => q.answer == AnswerValue.fail).toList();
+    final noWithC = all
+        .where((q) =>
+    q.answer == AnswerValue.fail &&
+        (q.comment.isNotEmpty || q.evidenceCount > 0))
+        .toList();
+    final noNoC = all
+        .where((q) =>
+    q.answer == AnswerValue.fail &&
+        q.comment.isEmpty &&
+        q.evidenceCount == 0)
+        .toList();
     final yesWithC = all
         .where((q) =>
     q.answer == AnswerValue.pass &&
@@ -118,26 +128,18 @@ class ReportViewerScreen extends StatelessWidget {
             titleColor: const Color(0xFFEF4444),
             borderLeftColor: const Color(0xFFEF4444),
             answerHighlight: 'N',
-            questions: noQ,
+            questions: noWithC,
             assignment: assignment,
             showFindings: true,
             showComment: true,
           ),
           const SizedBox(height: 8),
           _AnswerBlock(
-            title: 'ANSWERED YES WITH COMMENTS AND/OR ATTACHMENTS',
-            titleColor: _orange,
-            answerHighlight: 'Y',
-            questions: yesWithC,
-            assignment: assignment,
-            showComment: true,
-          ),
-          const SizedBox(height: 8),
-          _AnswerBlock(
-            title: 'ANSWERED YES WITHOUT COMMENTS / ATTACHMENTS',
-            titleColor: _orange,
-            answerHighlight: 'Y',
-            questions: yesNoC,
+            title: 'ANSWERED NO WITHOUT COMMENTS / ATTACHMENTS',
+            titleColor: const Color(0xFFEF4444),
+            borderLeftColor: const Color(0xFFEF4444),
+            answerHighlight: 'N',
+            questions: noNoC,
             assignment: assignment,
             idsOnly: true,
           ),
@@ -174,6 +176,24 @@ class ReportViewerScreen extends StatelessWidget {
             titleColor: _orange,
             answerHighlight: 'N/V',
             questions: nvNoC,
+            assignment: assignment,
+            idsOnly: true,
+          ),
+          const SizedBox(height: 8),
+          _AnswerBlock(
+            title: 'ANSWERED YES WITH COMMENTS AND/OR ATTACHMENTS',
+            titleColor: _orange,
+            answerHighlight: 'Y',
+            questions: yesWithC,
+            assignment: assignment,
+            showComment: true,
+          ),
+          const SizedBox(height: 8),
+          _AnswerBlock(
+            title: 'ANSWERED YES WITHOUT COMMENTS / ATTACHMENTS',
+            titleColor: _orange,
+            answerHighlight: 'Y',
+            questions: yesNoC,
             assignment: assignment,
             idsOnly: true,
           ),
@@ -243,7 +263,7 @@ class _CoverPage extends StatelessWidget {
               padding: const EdgeInsets.symmetric(
                   horizontal: 14, vertical: 6),
               color: const Color(0xFFFF6B00),
-              child: const Text('RIGHTKNOT',
+              child: const Text('RIGHTKNOTS',
                   style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.w800,
@@ -269,7 +289,7 @@ class _CoverPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('RightKnot Inspection Report',
+                const Text('RightKnots Inspection Report',
                     style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w800,
@@ -292,7 +312,7 @@ class _CoverPage extends StatelessWidget {
                       _kv('Inspection ID', a.id),
                       _kv('Vessel Name (IMO Number)',
                           '${a.vesselName} (${a.imo})'),
-                      _kv('Technical Management', 'RightKnot Shipping'),
+                      _kv('Technical Management', 'RightKnots Shipping'),
                       _kv('Inspector', 'Ramya Poojary'),
                       _kv('Date of Inspection', _formatDate(a.dueDate)),
                       _kv('Port of Inspection', a.port),
@@ -326,12 +346,12 @@ class _CoverPage extends StatelessWidget {
             width: 180,
             child: Text(label,
                 style: const TextStyle(
-                    color: Color(0xFF6B7280), fontSize: 12)),
+                    color: Color(0xFF6B7280), fontSize: 13.5)),
           ),
           Expanded(
             child: Text(value,
                 style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w600,
                     color: Color(0xFF111111))),
           )
@@ -405,7 +425,7 @@ class _AnswerBlock extends StatelessWidget {
         children: [
           Text(title,
               style: TextStyle(
-                  fontSize: 13,
+                  fontSize: 16,
                   fontWeight: FontWeight.w800,
                   color: titleColor)),
           const SizedBox(height: 12),
@@ -432,17 +452,41 @@ class _AnswerBlock extends StatelessWidget {
                   ),
                   child: Text(e.key,
                       style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: Color(0xFF1A2A5E))),
                 ),
                 if (idsOnly)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                        e.value.map((q) => q.id).join(', '),
-                        style: const TextStyle(
-                            fontSize: 12, color: Color(0xFF374151))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: e.value
+                          .map((q) => Padding(
+                        padding: const EdgeInsets.only(bottom: 7),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            SizedBox(
+                              width: 56,
+                              child: Text(q.id,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF1A2A5E))),
+                            ),
+                            Expanded(
+                              child: Text(q.text,
+                                  style: const TextStyle(
+                                      fontSize: 13.5,
+                                      height: 1.4,
+                                      color: Color(0xFF374151))),
+                            ),
+                          ],
+                        ),
+                      ))
+                          .toList(),
+                    ),
                   )
                 else
                   ...e.value.map((q) => _questionRow(q)),
@@ -520,7 +564,7 @@ class _AnswerBlock extends StatelessWidget {
             width: 50,
             child: Text(q.id,
                 style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Color(0xFF1A2A5E))),
           ),
@@ -531,7 +575,7 @@ class _AnswerBlock extends StatelessWidget {
               children: [
                 Text(q.text,
                     style: const TextStyle(
-                        fontSize: 14,
+                        fontSize: 15,
                         fontWeight: FontWeight.w700,
                         height: 1.4,
                         color: Color(0xFF1A2A5E))),
@@ -541,7 +585,7 @@ class _AnswerBlock extends StatelessWidget {
                     child: Text(
                       '${showFindings ? "Findings" : "Inspector Comments"}: ${q.comment}',
                       style: const TextStyle(
-                          fontSize: 11, color: Color(0xFF374151)),
+                          fontSize: 13, color: Color(0xFF374151)),
                     ),
                   ),
                 // Auto summary line per question (generated in PDF)
@@ -588,7 +632,7 @@ class _EvidencePhotosPage extends StatelessWidget {
     for (final q in assignment.allQuestions) {
       // active photos
       for (final p in q.photos) {
-        items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption));
+        items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment));
       }
       // per-answer photos
       q.photosByAnswer.forEach((ansKey, list) {
@@ -596,7 +640,7 @@ class _EvidencePhotosPage extends StatelessWidget {
           // avoid duplicating the active ones
           final already = q.photos.any((ap) => ap.url == p.url);
           if (!already) {
-            items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey));
+            items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey, questionComment: q.commentByAnswer[ansKey] ?? q.comment));
           }
         }
       });
@@ -662,11 +706,17 @@ class _EvidencePhotosPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Q ${it.questionId}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
                 const SizedBox(height: 3),
+                // Full question text — no cutting
                 Text(it.questionText,
-                    maxLines: 2, overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF6B7280))),
+                    style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF374151))),
+                if (it.questionComment.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text('Inspector Comment: ${it.questionComment}',
+                      style: const TextStyle(
+                          fontSize: 12.5, color: Color(0xFF6B7280), height: 1.4)),
+                ],
                 if (it.caption.isNotEmpty) ...[
                   const SizedBox(height: 6),
                   Container(
@@ -709,12 +759,14 @@ class _EvidenceItem {
   final String url;
   final String caption;
   final String? answerKey;
+  final String questionComment;
   _EvidenceItem({
     required this.questionId,
     required this.questionText,
     required this.url,
     this.caption = '',
     this.answerKey,
+    this.questionComment = '',
   });
 }
 
@@ -952,7 +1004,7 @@ class _ContactUsPage extends StatelessWidget {
                     style: TextStyle(
                         fontSize: 12, color: Color(0xFF374151))),
                 SizedBox(height: 6),
-                Text('💼  RightKnot Shipping',
+                Text('💼  RightKnots Shipping',
                     style: TextStyle(
                         fontSize: 12, color: Color(0xFF374151))),
               ],
@@ -998,7 +1050,7 @@ class _ContactUsPage extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                               color: Color(0xFF1A2A5E))),
                       SizedBox(height: 4),
-                      Text('RightKnot India Office',
+                      Text('RightKnots India Office',
                           style: TextStyle(
                               fontSize: 11, color: Color(0xFF6B7280))),
                       Text('Mumbai, Maharashtra',

@@ -181,8 +181,11 @@ class InspectionLauncher {
 
     for (final item in structure) {
       if (item is! Map) continue;
+      // Group by SUB-AREA (e.g. "Section 1: General Information");
+      // falls back to category if sub-area is empty.
+      final subArea = (item['sub_area'] ?? item['subArea'] ?? '').toString().trim();
       final category = (item['category'] ?? 'General').toString().trim();
-      final cat = category.isEmpty ? 'General' : category;
+      final cat = subArea.isNotEmpty ? subArea : (category.isEmpty ? 'General' : category);
       if (!byCategory.containsKey(cat)) {
         byCategory[cat] = [];
         order.add(cat);
@@ -251,9 +254,10 @@ class InspectionLauncher {
     final sections = <Section>[];
     for (int i = 0; i < order.length; i++) {
       final cat = order[i];
+      final alreadyNumbered = RegExp(r'^section\s*\d+', caseSensitive: false).hasMatch(cat);
       sections.add(Section(
         id: 'sec_$i',
-        title: 'Section ${i + 1}: $cat',
+        title: alreadyNumbered ? cat : 'Section ${i + 1}: $cat',
         colorHex: palette[i % palette.length],
         questions: byCategory[cat]!,
       ));
