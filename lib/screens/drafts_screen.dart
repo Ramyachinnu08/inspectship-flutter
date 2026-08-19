@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_events.dart';
 import '../theme/app_theme.dart';
 import '../theme/responsive.dart';
 import '../api_service.dart';
@@ -29,6 +30,7 @@ class _DraftsScreenState extends State<DraftsScreen> {
   @override
   void initState() {
     super.initState();
+    AppEvents.dataVersion.addListener(_onDataChanged);
     _loadData();
   }
 
@@ -67,6 +69,16 @@ class _DraftsScreenState extends State<DraftsScreen> {
       SnackBar(content: Text(result['message']?.toString() ?? 'Sync complete')),
     );
     _loadData();
+  }
+
+  void _onDataChanged() {
+    if (mounted) _loadData();
+  }
+
+  @override
+  void dispose() {
+    AppEvents.dataVersion.removeListener(_onDataChanged);
+    super.dispose();
   }
 
   @override

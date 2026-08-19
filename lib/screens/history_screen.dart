@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_events.dart';
 import '../theme/app_theme.dart';
 import '../theme/responsive.dart';
 import '../api_service.dart';
@@ -28,6 +29,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
+    AppEvents.dataVersion.addListener(_onDataChanged);
     _loadData();
   }
 
@@ -40,6 +42,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
       _submitted = submitted;
       _loading = false;
     });
+  }
+
+  void _onDataChanged() {
+    if (mounted) _loadData();
+  }
+
+  @override
+  void dispose() {
+    AppEvents.dataVersion.removeListener(_onDataChanged);
+    super.dispose();
   }
 
   @override

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_events.dart';
 import '../api_service.dart';
 
 // ===== RightKnots maritime palette =====
@@ -27,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    AppEvents.dataVersion.addListener(_onDataChanged);
     _loadData();
   }
 
@@ -72,6 +74,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final status = (a['status'] ?? '').toString().toLowerCase();
       return status == 'upcoming' || status == 'in_progress';
     }).toList();
+  }
+
+  void _onDataChanged() {
+    if (mounted) _loadData();
+  }
+
+  @override
+  void dispose() {
+    AppEvents.dataVersion.removeListener(_onDataChanged);
+    super.dispose();
   }
 
   @override

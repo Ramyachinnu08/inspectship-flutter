@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_events.dart';
 import '../api_service.dart';
 import 'report_launcher.dart';
 
@@ -26,6 +27,7 @@ class _ReportsScreenState extends State<ReportsScreen> {
   @override
   void initState() {
     super.initState();
+    AppEvents.dataVersion.addListener(_onDataChanged);
     _loadData();
   }
 
@@ -38,6 +40,16 @@ class _ReportsScreenState extends State<ReportsScreen> {
       _reports = submitted;
       _loading = false;
     });
+  }
+
+  void _onDataChanged() {
+    if (mounted) _loadData();
+  }
+
+  @override
+  void dispose() {
+    AppEvents.dataVersion.removeListener(_onDataChanged);
+    super.dispose();
   }
 
   @override

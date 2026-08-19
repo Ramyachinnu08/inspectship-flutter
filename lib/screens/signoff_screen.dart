@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_events.dart';
 import '../models/models.dart';
 import '../data/mock_store.dart';
 import '../api_service.dart';
@@ -162,6 +163,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
               }
 
               if (!mounted) return;
+              AppEvents.bump(); // tell dashboard/reports/history to reload
               final wasOnline = await OfflineStore.instance.isOnline();
               // pop back to assignments list
               Navigator.of(context).pop();
