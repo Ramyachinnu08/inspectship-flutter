@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:image_picker/image_picker.dart';
@@ -254,10 +255,11 @@ class _InspectionScreenState extends State<InspectionScreen> {
     }
   }
 
-  Future<void> _addMockPhoto(Question q) async {
+  Future<void> _addMockPhoto(Question q,
+      {ImageSource source = ImageSource.gallery}) async {
     final picker = ImagePicker();
     final XFile? picked = await picker.pickImage(
-      source: ImageSource.gallery,
+      source: source,
       maxWidth: 1000,
       imageQuality: 60,
     );
@@ -1166,8 +1168,14 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   fontWeight: FontWeight.w700,
                   color: Color(0xFF5C2E0E))),
           const SizedBox(height: 14),
-          // Existing photos grid
+          // Existing photos grid (long-press a photo and drag to reorder)
           if (q.photos.isNotEmpty) ...[
+            if (q.photos.length > 1)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 8),
+                child: Text('Tip: drag a photo onto another to change the order',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF8A6A4E))),
+              ),
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1179,7 +1187,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
               ),
               itemCount: q.photos.length,
               itemBuilder: (context, idx) =>
-                  _photoCard(q, q.photos[idx], idx),
+                  _draggablePhotoTile(q, idx),
             ),
             const SizedBox(height: 14),
           ],
@@ -1196,6 +1204,68 @@ class _InspectionScreenState extends State<InspectionScreen> {
     );
   }
 
+  /// Photo tile that can be long-pressed and dragged onto another tile
+  /// to change the order of evidence photos.
+  Widget _draggablePhotoTile(Question q, int idx) {
+    final tile = _photoCard(q, q.photos[idx], idx);
+    final feedback = Material(
+      color: Colors.transparent,
+      child: SizedBox(
+        width: 240,
+        child: Opacity(opacity: 0.85, child: tile),
+      ),
+    );
+    // On web/desktop a mouse can drag instantly; on phones long-press
+    // is used so normal scrolling still works.
+    final bool instantDrag = kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.windows ||
+        defaultTargetPlatform == TargetPlatform.macOS ||
+        defaultTargetPlatform == TargetPlatform.linux;
+
+    final target = DragTarget<int>(
+      onWillAcceptWithDetails: (d) => d.data != idx,
+      onAcceptWithDetails: (d) {
+        setState(() {
+          final moved = q.photos.removeAt(d.data);
+          q.photos.insert(idx, moved);
+          // keep the per-answer photo list in the same order
+          final key = Question.keyFor(q.answer);
+          if (q.photosByAnswer.containsKey(key)) {
+            q.photosByAnswer[key] = List.from(q.photos);
+          }
+        });
+      },
+      builder: (context, candidates, _) => Container(
+        decoration: candidates.isNotEmpty
+            ? BoxDecoration(
+          border:
+          Border.all(color: const Color(0xFFE8630A), width: 2),
+          borderRadius: BorderRadius.circular(10),
+        )
+            : null,
+        child: tile,
+      ),
+    );
+
+    if (instantDrag) {
+      return MouseRegion(
+        cursor: SystemMouseCursors.grab,
+        child: Draggable<int>(
+          data: idx,
+          feedback: feedback,
+          childWhenDragging: Opacity(opacity: 0.3, child: tile),
+          child: target,
+        ),
+      );
+    }
+    return LongPressDraggable<int>(
+      data: idx,
+      feedback: feedback,
+      childWhenDragging: Opacity(opacity: 0.3, child: tile),
+      child: target,
+    );
+  }
+
   Widget _photoSlot(Question q) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1208,7 +1278,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
         children: [
           Expanded(
             child: ElevatedButton(
-              onPressed: () => _addMockPhoto(q),
+              onPressed: () =>
+                  _addMockPhoto(q, source: ImageSource.camera),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF6B00),
                 foregroundColor: Colors.white,

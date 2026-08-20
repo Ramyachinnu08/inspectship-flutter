@@ -12,7 +12,23 @@ class ReportViewerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final all = assignment.allQuestions;
+    // Section 1 (General Information) is shown first as its own block,
+    // so exclude its questions from the answer-grouped blocks below.
+    Section? generalSec;
+    for (final sec in assignment.sections) {
+      if (sec.title.toLowerCase().contains('general information')) {
+        generalSec = sec;
+        break;
+      }
+    }
+    generalSec ??=
+    assignment.sections.isNotEmpty ? assignment.sections.first : null;
+    final generalIds =
+    (generalSec?.questions ?? const []).map((q) => q.id).toSet();
+
+    final all = assignment.allQuestions
+        .where((q) => !generalIds.contains(q.id))
+        .toList();
     final noWithC = all
         .where((q) =>
     q.answer == AnswerValue.fail &&
@@ -121,7 +137,7 @@ class ReportViewerScreen extends StatelessWidget {
           const SizedBox(height: 8),
           _IndexPage(assignment: assignment),
           const SizedBox(height: 8),
-          _SectionCommentsPage(),
+          if (generalSec != null) _GeneralInfoBlock(section: generalSec),
           const SizedBox(height: 8),
           _AnswerBlock(
             title: 'ANSWERED NO WITH COMMENTS AND/OR ATTACHMENTS (FINDINGS)',
@@ -361,6 +377,113 @@ class _CoverPage extends StatelessWidget {
   }
 }
 
+class _GeneralInfoBlock extends StatelessWidget {
+  final Section section;
+  const _GeneralInfoBlock({required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    return _Page(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(section.title.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF1A2A5E))),
+          const SizedBox(height: 4),
+          Container(height: 2, width: 60, color: const Color(0xFFFF6B00)),
+          const SizedBox(height: 12),
+          ...section.questions.map((q) => _giRow(q)),
+        ],
+      ),
+    );
+  }
+
+  Widget _giRow(Question q) {
+    String label;
+    Color bg, fg;
+    switch (q.answer) {
+      case AnswerValue.pass:
+        label = 'YES';
+        bg = const Color(0xFFDCFCE7);
+        fg = const Color(0xFF166534);
+        break;
+      case AnswerValue.fail:
+        label = 'NO';
+        bg = const Color(0xFFFEE2E2);
+        fg = const Color(0xFF991B1B);
+        break;
+      case AnswerValue.na:
+        label = 'N/A';
+        bg = const Color(0xFFFFF3EC);
+        fg = const Color(0xFFB45309);
+        break;
+      case AnswerValue.nv:
+        label = 'N/V';
+        bg = const Color(0xFFFFF3EC);
+        fg = const Color(0xFFB45309);
+        break;
+      default:
+        label = '—';
+        bg = const Color(0xFFF3F4F6);
+        fg = const Color(0xFF6B7280);
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      decoration: const BoxDecoration(
+        border:
+        Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 50,
+            child: Text(q.id,
+                style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A2A5E))),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(q.text,
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        height: 1.4,
+                        color: Color(0xFF1A2A5E))),
+                if (q.comment.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text('Inspector Comments: ${q.comment}',
+                        style: const TextStyle(
+                            fontSize: 13, color: Color(0xFF374151))),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+                color: bg, borderRadius: BorderRadius.circular(12)),
+            child: Text(label,
+                style: TextStyle(
+                    fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SectionCommentsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -588,6 +711,49 @@ class _AnswerBlock extends StatelessWidget {
                           fontSize: 13, color: Color(0xFF374151)),
                     ),
                   ),
+                // Evidence images shown right here with the question
+                if ((showFindings || showComment) && q.photos.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: q.photos.map((p) {
+                        Widget img;
+                        if (p.url.startsWith('data:image')) {
+                          img = Image.memory(
+                              base64Decode(p.url.split(',').last),
+                              width: 150, height: 110, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const SizedBox(
+                                  width: 150, height: 110,
+                                  child: Icon(Icons.broken_image_outlined,
+                                      color: Color(0xFF9CA3AF))));
+                        } else if (p.url.startsWith('http')) {
+                          img = Image.network(p.url,
+                              width: 150, height: 110, fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const SizedBox(
+                                  width: 150, height: 110,
+                                  child: Icon(Icons.image_outlined,
+                                      color: Color(0xFF9CA3AF))));
+                        } else {
+                          img = const SizedBox(
+                              width: 150, height: 110,
+                              child: Icon(Icons.image_outlined,
+                                  color: Color(0xFF9CA3AF)));
+                        }
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(color: const Color(0xFFE5E7EB)),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: img,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
                 // Auto summary line per question (generated in PDF)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
@@ -632,7 +798,7 @@ class _EvidencePhotosPage extends StatelessWidget {
     for (final q in assignment.allQuestions) {
       // active photos
       for (final p in q.photos) {
-        items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment));
+        items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment, answerKey: Question.keyFor(q.answer)));
       }
       // per-answer photos
       q.photosByAnswer.forEach((ansKey, list) {
@@ -650,8 +816,36 @@ class _EvidencePhotosPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('EVIDENCE PHOTOS',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+          Row(
+            children: [
+              const Expanded(
+                child: Text('EVIDENCE PHOTO GALLERY',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+              ),
+              // Total image count badge (right side)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3EC),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFFFD9BF)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.photo_library_outlined,
+                        size: 16, color: Color(0xFFFF6B00)),
+                    const SizedBox(width: 6),
+                    Text('${items.length} image${items.length == 1 ? '' : 's'}',
+                        style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: Color(0xFFFF6B00))),
+                  ],
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 4),
           Container(height: 2, width: 60, color: const Color(0xFFFF6B00)),
           const SizedBox(height: 16),
@@ -705,9 +899,35 @@ class _EvidencePhotosPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Q ${it.questionId}',
-                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
-                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    // Answer badge: YES green, NO red, N/A / N/V orange
+                    Builder(builder: (_) {
+                      final k = (it.answerKey ?? '').toLowerCase();
+                      String label;
+                      Color bg, fg;
+                      if (k == 'yes') { label = 'YES'; bg = const Color(0xFFDCFCE7); fg = const Color(0xFF166534); }
+                      else if (k == 'no') { label = 'NO'; bg = const Color(0xFFFEE2E2); fg = const Color(0xFF991B1B); }
+                      else if (k == 'na') { label = 'N/A'; bg = const Color(0xFFFFF3EC); fg = const Color(0xFFB45309); }
+                      else if (k == 'nv') { label = 'N/V'; bg = const Color(0xFFFFF3EC); fg = const Color(0xFFB45309); }
+                      else { label = '—'; bg = const Color(0xFFF3F4F6); fg = const Color(0xFF6B7280); }
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                            color: bg, borderRadius: BorderRadius.circular(12)),
+                        child: Text(label,
+                            style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                                color: fg)),
+                      );
+                    }),
+                    const SizedBox(width: 8),
+                    Text('Q ${it.questionId}',
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
+                  ],
+                ),
+                const SizedBox(height: 5),
                 // Full question text — no cutting
                 Text(it.questionText,
                     style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF374151))),
