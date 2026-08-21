@@ -29,16 +29,19 @@ class ReportViewerScreen extends StatelessWidget {
     final all = assignment.allQuestions
         .where((q) => !generalIds.contains(q.id))
         .toList();
+    bool hasObs(Question q) =>
+        (q.commentByAnswer['__observation__'] ?? '').isNotEmpty;
     final noWithC = all
         .where((q) =>
     q.answer == AnswerValue.fail &&
-        (q.comment.isNotEmpty || q.evidenceCount > 0))
+        (q.comment.isNotEmpty || q.evidenceCount > 0 || hasObs(q)))
         .toList();
     final noNoC = all
         .where((q) =>
     q.answer == AnswerValue.fail &&
         q.comment.isEmpty &&
-        q.evidenceCount == 0)
+        q.evidenceCount == 0 &&
+        !hasObs(q))
         .toList();
     final yesWithC = all
         .where((q) =>
@@ -287,19 +290,29 @@ class _CoverPage extends StatelessWidget {
                       letterSpacing: 1)),
             ),
           ),
-          if (a.coverImage.isNotEmpty)
-            Container(
+          Builder(builder: (context) {
+            // Fall back to the RightKnots ship banner when no vessel
+            // cover image was captured during the inspection.
+            final cover = a.coverImage.isNotEmpty
+                ? a.coverImage
+                : 'https://i.ibb.co/zh2hKsVV/dash.png';
+            return Container(
               width: double.infinity,
               color: const Color(0xFF1A2A5E),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: a.coverImage.startsWith('data:image')
-                    ? Image.memory(base64Decode(a.coverImage.split(',').last),
+                child: cover.startsWith('data:image')
+                    ? Image.memory(base64Decode(cover.split(',').last),
                     width: double.infinity, fit: BoxFit.contain)
-                    : Image.network(a.coverImage, width: double.infinity, fit: BoxFit.contain),
+                    : Image.network(cover,
+                    width: double.infinity,
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) =>
+                    const SizedBox.shrink()),
               ),
-            ),
+            );
+          }),
           Padding(
             padding: const EdgeInsets.all(28),
             child: Column(
@@ -381,102 +394,204 @@ class _GeneralInfoBlock extends StatelessWidget {
   final Section section;
   const _GeneralInfoBlock({required this.section});
 
+  static const _navy = Color(0xFF1A2A5E);
+  static const _gray = Color(0xFF6B7280);
+
+  /// Map a question to (card, short professional label) by keywords.
+  (String, String) _classify(Question q) {
+    final t = q.text.toLowerCase();
+    // Vessel Details
+    if (t.contains('imo')) return ('vessel', 'IMO');
+    if (t.contains('flag')) return ('vessel', 'Flag');
+    if (t.contains('name') && t.contains('vessel') && t.contains('certificate')) {
+      return ('vessel', 'Vessel Name');
+    }
+    if (t.contains('deliver')) return ('vessel', 'Date Delivered');
+    if (t.contains('deadweight')) return ('vessel', 'Maximum Deadweight');
+    if (t.contains('layup') || t.contains('lay-up')) return ('vessel', 'Layup Date');
+    // Technical Specifications
+    if (t.contains('vessel type') || (t.contains('type') && t.contains('carrier'))) {
+      return ('tech', 'Vessel Type');
+    }
+    if (t.contains('operation at the time') || t.contains('current operation')) {
+      return ('tech', 'Current Operation');
+    }
+    if (t.contains('cargo')) return ('tech', 'Cargo being handled');
+    if (t.contains('hull')) return ('tech', 'Hull Type');
+    // Certification & Classification
+    if (t.contains('port state control')) {
+      return ('cert', 'Port State Control History (Last 12 Months)');
+    }
+    if (t.contains('classification society')) {
+      return ('cert', 'Classification Society');
+    }
+    if (t.contains('class certificate')) return ('cert', 'Class Certificate Expiry');
+    if (t.contains('special survey')) return ('cert', 'Last Special Survey');
+    if (t.contains('dry dock') && t.contains('routine')) {
+      return ('cert', 'Last Routine Dry Dock');
+    }
+    if (t.contains('unscheduled repair') || t.contains('dry dock')) {
+      return ('cert', 'Unscheduled Repair');
+    }
+    // Energy efficiency
+    if (t.contains('eedi')) return ('energy', 'EEDI');
+    if (t.contains('eexi')) return ('energy', 'EEXI');
+    if (t.contains('cii') || t.contains('carbon intensity')) return ('energy', 'Carbon Intensity Indicator (CII)');
+    // Management information
+    if (t.contains('doc manager') || (t.contains('manager') && t.contains('name'))) {
+      return ('mgmt', 'Vessel Manager');
+    }
+    if (t.contains('took over') || t.contains('takeover')) {
+      return ('mgmt', 'Manager Takeover Date');
+    }
+    if (t.contains('visits') && t.contains('manager')) {
+      return ('mgmt', 'Last Manager Visits');
+    }
+    if (t.contains('p&i') || t.contains('p & i')) return ('mgmt', "P&I Club");
+    // Inspection details
+    if (t.contains('port of inspection') || (t.contains('port') && !t.contains('report'))) {
+      return ('insp', 'Port of Inspection');
+    }
+    if (t.contains('arriv')) return ('insp', 'Inspector Arrival');
+    if (t.contains('left the vessel') || t.contains('departure')) {
+      return ('insp', 'Inspector Departure');
+    }
+    if (t.contains('total') && t.contains('time')) return ('insp', 'Total Inspection Time');
+    if (t.contains('inspection was completed') || t.contains('inspection completed')) {
+      return ('insp', 'Inspection Completed');
+    }
+    if (t.contains('opening meeting')) return ('insp', 'Opening Meeting');
+    if (t.contains('closing meeting')) return ('insp', 'Closing Meeting');
+    if (t.contains('inspector') && t.contains('name')) return ('insp', 'Inspector Name');
+    // fallback: full question text as label
+    var label = q.text.trim();
+    if (label.endsWith(':')) label = label.substring(0, label.length - 1);
+    return ('other', label);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // answered questions grouped into cards
+    final Map<String, List<(String, String)>> cards = {};
+    for (final q in section.questions) {
+      final v = q.comment.trim();
+      if (v.isEmpty) continue;
+      final (card, label) = _classify(q);
+      cards.putIfAbsent(card, () => []).add((label, v));
+    }
+
+    final defs = <(String, String, IconData, bool)>[
+      // key, title, icon, useColumnsGrid
+      ('vessel', 'Vessel Details', Icons.directions_boat_outlined, true),
+      ('tech', 'Technical Specifications', Icons.description_outlined, false),
+      ('cert', 'Certification & Classification', Icons.workspace_premium_outlined, false),
+      ('energy', 'Energy Efficiency', Icons.bolt_outlined, false),
+      ('mgmt', 'Management Information', Icons.business_outlined, false),
+      ('insp', 'Inspection Details', Icons.info_outline, false),
+      ('other', 'Other Information', Icons.notes_outlined, false),
+    ];
+
     return _Page(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(section.title.toUpperCase(),
-              style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF1A2A5E))),
-          const SizedBox(height: 4),
-          Container(height: 2, width: 60, color: const Color(0xFFFF6B00)),
-          const SizedBox(height: 12),
-          ...section.questions.map((q) => _giRow(q)),
+          const Text('1. General information',
+              style: TextStyle(
+                  fontSize: 20, fontWeight: FontWeight.w800, color: _navy)),
+          const SizedBox(height: 14),
+          for (final d in defs)
+            if (cards[d.$1] != null && cards[d.$1]!.isNotEmpty) ...[
+              _card(
+                icon: d.$3,
+                title: d.$2,
+                child: d.$4
+                    ? Wrap(
+                  spacing: 30,
+                  runSpacing: 16,
+                  children: cards[d.$1]!
+                      .map((e) => _gridItem(e.$1, e.$2))
+                      .toList(),
+                )
+                    : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: cards[d.$1]!
+                      .map((e) => _row(e.$1, e.$2))
+                      .toList(),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
         ],
       ),
     );
   }
 
-  Widget _giRow(Question q) {
-    String label;
-    Color bg, fg;
-    switch (q.answer) {
-      case AnswerValue.pass:
-        label = 'YES';
-        bg = const Color(0xFFDCFCE7);
-        fg = const Color(0xFF166534);
-        break;
-      case AnswerValue.fail:
-        label = 'NO';
-        bg = const Color(0xFFFEE2E2);
-        fg = const Color(0xFF991B1B);
-        break;
-      case AnswerValue.na:
-        label = 'N/A';
-        bg = const Color(0xFFFFF3EC);
-        fg = const Color(0xFFB45309);
-        break;
-      case AnswerValue.nv:
-        label = 'N/V';
-        bg = const Color(0xFFFFF3EC);
-        fg = const Color(0xFFB45309);
-        break;
-      default:
-        label = '—';
-        bg = const Color(0xFFF3F4F6);
-        fg = const Color(0xFF6B7280);
-    }
+  Widget _card(
+      {required IconData icon, required String title, required Widget child}) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: const BoxDecoration(
-        border:
-        Border(bottom: BorderSide(color: Color(0xFFE5E7EB), width: 1)),
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 24, color: _navy),
+              const SizedBox(width: 12),
+              Text(title,
+                  style: const TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800, color: _navy)),
+            ],
+          ),
+          const SizedBox(height: 18),
+          child,
+        ],
+      ),
+    );
+  }
+
+  /// Vessel Details style: label on top, bold value below, in columns.
+  Widget _gridItem(String label, String value) {
+    return SizedBox(
+      width: 210,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: const TextStyle(fontSize: 12, color: _gray)),
+          const SizedBox(height: 3),
+          Text(value.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w800, color: _navy)),
+        ],
+      ),
+    );
+  }
+
+  /// Technical Specifications style: label left, bold value right.
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 50,
-            child: Text(q.id,
+            width: 150,
+            child: Text(label,
+                style: const TextStyle(fontSize: 12.5, color: _gray, height: 1.35)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(value.toUpperCase(),
                 style: const TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A2A5E))),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(q.text,
-                    style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        height: 1.4,
-                        color: Color(0xFF1A2A5E))),
-                if (q.comment.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text('Inspector Comments: ${q.comment}',
-                        style: const TextStyle(
-                            fontSize: 13, color: Color(0xFF374151))),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-                color: bg, borderRadius: BorderRadius.circular(12)),
-            child: Text(label,
-                style: TextStyle(
-                    fontSize: 12, fontWeight: FontWeight.w800, color: fg)),
+                    fontWeight: FontWeight.w800,
+                    height: 1.45,
+                    color: _navy)),
           ),
         ],
       ),
@@ -706,9 +821,22 @@ class _AnswerBlock extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      '${showFindings ? "Findings" : "Inspector Comments"}: ${q.comment}',
+                      'Inspector Comments: ${q.comment}',
                       style: const TextStyle(
                           fontSize: 13, color: Color(0xFF374151)),
+                    ),
+                  ),
+                // Findings = the Observation text written for NO answers
+                if ((showFindings || showComment) &&
+                    (q.commentByAnswer['__observation__'] ?? '').isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      'Findings: ${q.commentByAnswer['__observation__']}',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF991B1B)),
                     ),
                   ),
                 // Evidence images shown right here with the question

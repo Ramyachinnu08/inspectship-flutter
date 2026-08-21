@@ -225,6 +225,14 @@ class InspectionLauncher {
           commentByAns['$k'] = v.toString();
         });
       }
+      // restore the General Information "Additional comment"
+      if (saved != null && (saved['extra_comment'] ?? '').toString().isNotEmpty) {
+        commentByAns['__extra__'] = saved['extra_comment'].toString();
+      }
+      // restore the Observation box (No answers)
+      if (saved != null && (saved['observation'] ?? '').toString().isNotEmpty) {
+        commentByAns['__observation__'] = saved['observation'].toString();
+      }
       // restore per-answer photos map
       final Map<String, List<EvidencePhoto>> photosByAns = {};
       if (saved != null && saved['photosByAnswer'] is Map) {
@@ -252,6 +260,39 @@ class InspectionLauncher {
 
     final palette = [0xFF3B82F6, 0xFFF59E0B, 0xFF22C55E, 0xFF8B5CF6, 0xFFEC4899, 0xFFEF4444];
     final sections = <Section>[];
+    // Sort sections into correct numeric order: Section 1, 2, 3, ...
+    int sectionNum(String title) {
+      final m = RegExp(r'section\s*(\d+)', caseSensitive: false)
+          .firstMatch(title);
+      return m != null ? int.parse(m.group(1)!) : 999999;
+    }
+    order.sort((a, b) {
+      final na = sectionNum(a);
+      final nb = sectionNum(b);
+      if (na != nb) return na.compareTo(nb);
+      return a.compareTo(b);
+    });
+
+    // Sort questions inside each group numerically: 9.1, 9.2 ... 9.12
+    List<int> numParts(String id) {
+      return RegExp(r'\d+')
+          .allMatches(id)
+          .map((m) => int.parse(m.group(0)!))
+          .toList();
+    }
+    int compareIds(String a, String b) {
+      final pa = numParts(a);
+      final pb = numParts(b);
+      for (var i = 0; i < pa.length && i < pb.length; i++) {
+        if (pa[i] != pb[i]) return pa[i].compareTo(pb[i]);
+      }
+      if (pa.length != pb.length) return pa.length.compareTo(pb.length);
+      return a.compareTo(b);
+    }
+    for (final list in byCategory.values) {
+      list.sort((qa, qb) => compareIds(qa.id, qb.id));
+    }
+
     for (int i = 0; i < order.length; i++) {
       final cat = order[i];
       final alreadyNumbered = RegExp(r'^section\s*\d+', caseSensitive: false).hasMatch(cat);

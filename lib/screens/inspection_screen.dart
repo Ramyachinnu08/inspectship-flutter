@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -27,10 +28,33 @@ class _InspectionScreenState extends State<InspectionScreen> {
   TextEditingController _commentCtrl(Question q) {
     return _commentControllers.putIfAbsent(q.id, () => TextEditingController(text: q.comment));
   }
+
+  // Cached controllers for the Observation boxes (No answers)
+  // so typed text is never lost.
+  final Map<String, TextEditingController> _obsControllers = {};
+  TextEditingController _obsCtrl(Question q) {
+    return _obsControllers.putIfAbsent(
+        q.id,
+            () => TextEditingController(
+            text: q.commentByAnswer['__observation__'] ?? ''));
+  }
+
+  // Separate cached controllers for the General Information
+  // "Additional comment" boxes so typed text is never lost.
+  final Map<String, TextEditingController> _extraControllers = {};
+  TextEditingController _extraCtrl(Question q) {
+    return _extraControllers.putIfAbsent(
+        q.id,
+            () => TextEditingController(
+            text: q.commentByAnswer['__extra__'] ?? ''));
+  }
   String _leftTab = 'sections';
   String? _activeSectionId;
   String? _activeQuestionId;
   final ItemScrollController _itemScroll = ItemScrollController();
+  final ItemPositionsListener _itemPositions = ItemPositionsListener.create();
+  int _scrollReq = 0;   // bumped when sidebar/nav explicitly repositions the list
+  int _initialIdx = 0;  // where the list should open on reposition
   final Map<String, bool> _expanded = {};
   final Map<String, bool> _editingField = {};
 
@@ -46,6 +70,32 @@ class _InspectionScreenState extends State<InspectionScreen> {
   @override
   void initState() {
     super.initState();
+    // Guide panel follows scrolling: track the topmost visible question.
+    _itemPositions.itemPositions.addListener(() {
+      final s = _activeSection;
+      if (s == null) return;
+      final positions = _itemPositions.itemPositions.value;
+      if (positions.isEmpty) return;
+      // Topmost question that occupies real screen space: an item barely
+      // hanging in from above (last few pixels) doesn't count, so the
+      // guide matches the question whose heading you actually see.
+      int? topIndex;
+      double best = double.infinity;
+      for (final p in positions) {
+        if (p.itemTrailingEdge <= 0.12) continue; // must cover >12% line
+        if (p.itemLeadingEdge < best) {
+          best = p.itemLeadingEdge;
+          topIndex = p.index;
+        }
+      }
+      if (topIndex == null) return;
+      final qIdx = topIndex - 1; // index 0 is the section title
+      if (qIdx < 0 || qIdx >= s.questions.length) return;
+      final qid = s.questions[qIdx].id;
+      if (qid != _activeQuestionId) {
+        setState(() => _activeQuestionId = qid);
+      }
+    });
     _coverImage = widget.assignment.coverImage;
     if (widget.assignment.sections.isNotEmpty) {
       _activeSectionId = widget.assignment.sections.first.id;
@@ -235,11 +285,24 @@ class _InspectionScreenState extends State<InspectionScreen> {
       });
     } else {
       // no photo -> answer the question as text
-      final prompt = 'You are a marine vessel inspector. For this inspection question: "${q.text}", answer in EXACTLY 3 numbered sections. '
-          'Do NOT use asterisks, hashes or any markdown. Plain text only. Use these exact headings:\n'
-          '1. What to Check\n(your points here)\n\n'
-          '2. Typical Finding\n(a realistic example finding here)\n\n'
-          '3. Suggested Answer/Comment\n(a ready-to-use inspector comment here)';
+      final prompt =
+          'You are a senior marine vessel inspector writing a formal inspection report '
+          '(RightShip / SIRE style). For this inspection question: "${q.text}", answer in '
+          'EXACTLY 3 numbered sections. Do NOT use asterisks, hashes or any markdown. '
+          'Plain text only. Use these exact headings:\n'
+          '1. What to Check\n(short practical checklist of what to verify on board)\n\n'
+          '2. Typical Finding\n(ONE factual deficiency statement in past tense, exactly as it '
+          'would appear in a report finding. State only WHAT was observed - never include '
+          'corrective actions, recommendations, "should", "must", "immediately" or "prior to '
+          'departure". Example style: "One power supply socket at rescue boat davit was not '
+          'provided with cap.")\n\n'
+          '3. Suggested Answer/Comment\n(a ready-to-use inspector comment written as a factual '
+          'RECORD in past tense, like a professional marine inspection report. Structure: start '
+          'with quantities/inventory (e.g. "4 x 16 persons / 1 x 6 persons inflatable life '
+          'rafts"), then what was checked and how ("were checked at random and found in '
+          'satisfactory condition"), then relevant dates with placeholders the inspector fills '
+          'in (e.g. "Date of last shore service: __/__/____. Date of expiry: __/____."). Never '
+          'give instructions or recommendations - only record observations.)';
       result = await ApiService.aiAsk(prompt);
       if (!mounted) return;
       setState(() {
@@ -272,6 +335,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
         url: 'data:image/jpeg;base64,$base64Str',
       ));
     });
+    _scheduleAutoSave();
   }
 
   @override
@@ -301,39 +365,64 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
   @override
   void dispose() {
+    _autoSaveTimer?.cancel();
     for (final ctrl in _commentControllers.values) {
       ctrl.dispose();
     }
     super.dispose();
   }
 
+  Map<String, dynamic> _collectAnswers() {
+    final answers = <String, dynamic>{};
+    for (final s in widget.assignment.sections) {
+      for (final q in s.questions) {
+        final extra = q.commentByAnswer['__extra__'] ?? '';
+        final obs = q.commentByAnswer['__observation__'] ?? '';
+        if (q.answer == null && q.comment.isEmpty && q.photos.isEmpty && extra.isEmpty && obs.isEmpty) continue;
+        String? ans;
+        if (q.answer != null) {
+          switch (q.answer!) {
+            case AnswerValue.pass: ans = 'yes'; break;
+            case AnswerValue.fail: ans = 'no'; break;
+            case AnswerValue.na: ans = 'na'; break;
+            case AnswerValue.nv: ans = 'nv'; break;
+          }
+        }
+        answers[q.id] = {
+          'answer': ans,
+          'comment': q.comment,
+          'extra_comment': q.commentByAnswer['__extra__'] ?? '',
+          'observation': q.commentByAnswer['__observation__'] ?? '',
+          'question_text': q.text,
+          'photos': q.photos.map((p) => p.url).toList(),
+          'photo_captions': q.photos.map((p) => p.caption).toList(),
+        };
+      }
+    }
+    answers['__cover_image__'] = {'url': _coverImage};
+    return answers;
+  }
+
+  Timer? _autoSaveTimer;
+
+  /// Auto-save: called on every answer/comment/photo change.
+  /// Waits 2s of quiet before saving so we don't save on every keystroke.
+  void _scheduleAutoSave() {
+    _autoSaveTimer?.cancel();
+    _autoSaveTimer = Timer(const Duration(seconds: 2), () async {
+      final inspectionId = InspectionSession.currentInspectionId;
+      if (inspectionId == null) return;
+      try {
+        await ApiService.saveAnswers(inspectionId, _collectAnswers());
+      } catch (_) {/* silent; next change retries */}
+    });
+  }
+
   Future<void> _saveAndExit() async {
+    _autoSaveTimer?.cancel();
     final inspectionId = InspectionSession.currentInspectionId;
     if (inspectionId != null) {
-      final answers = <String, dynamic>{};
-      for (final s in widget.assignment.sections) {
-        for (final q in s.questions) {
-          if (q.answer == null && q.comment.isEmpty && q.photos.isEmpty) continue;
-          String? ans;
-          if (q.answer != null) {
-            switch (q.answer!) {
-              case AnswerValue.pass: ans = 'yes'; break;
-              case AnswerValue.fail: ans = 'no'; break;
-              case AnswerValue.na: ans = 'na'; break;
-              case AnswerValue.nv: ans = 'nv'; break;
-            }
-          }
-          answers[q.id] = {
-            'answer': ans,
-            'comment': q.comment,
-            'question_text': q.text,
-            'photos': q.photos.map((p) => p.url).toList(),
-            'photo_captions': q.photos.map((p) => p.caption).toList(),
-          };
-        }
-      }
-      answers['__cover_image__'] = {'url': _coverImage};
-      await ApiService.saveAnswers(inspectionId, answers);
+      await ApiService.saveAnswers(inspectionId, _collectAnswers());
     }
     if (mounted) Navigator.of(context).maybePop();
   }
@@ -605,23 +694,20 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
     return InkWell(
       onTap: () {
+        // find the question's position in its section for the list opening
+        int idx = 0;
+        for (final sec in widget.assignment.sections) {
+          if (sec.id == sectionId) {
+            final i = sec.questions.indexWhere((x) => x.id == q.id);
+            if (i >= 0) idx = i + 1; // index 0 is the title
+            break;
+          }
+        }
         setState(() {
           _activeSectionId = sectionId;
           _activeQuestionId = q.id;
-        });
-        // jump the middle panel to this question (index 0 is the title)
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final sec = _activeSection;
-          if (sec == null || !_itemScroll.isAttached) return;
-          final idx = sec.questions.indexWhere((x) => x.id == q.id);
-          if (idx >= 0) {
-            _itemScroll.scrollTo(
-              index: idx + 1,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              alignment: 0.02,
-            );
-          }
+          _initialIdx = idx;
+          _scrollReq++; // reposition the list
         });
       },
       child: Container(
@@ -687,12 +773,19 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
     // Standard sections: lazy list — only visible questions are built,
     // so large sections stay fast while scrolling and answering.
-    if (q != null && s != null) {
+    if (q != null && s != null && !_isGeneralInfo(s)) {
       final count = s.questions.length;
+      // The list repositions only on explicit requests (sidebar click or
+      // Next/Previous) via _scrollReq; guide updates from scrolling do not
+      // recreate it.
       return Container(
         color: const Color(0xFFF2EBDD),
         child: ScrollablePositionedList.builder(
+          key: ValueKey('sec-${s.id}-req-$_scrollReq'),
           itemScrollController: _itemScroll,
+          itemPositionsListener: _itemPositions,
+          initialScrollIndex: _initialIdx,
+          initialAlignment: 0.02,
           padding: const EdgeInsets.all(24),
           itemCount: count + 2, // title + questions + nav buttons
           itemBuilder: (context, i) {
@@ -772,6 +865,47 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return const SizedBox.shrink();
   }
 
+  /// Fill general-info fields the app already knows the answer to
+  /// (vessel name, IMO, port, inspection scope/template, date).
+  void _autoFillGeneralInfo(Section s) {
+    final a = widget.assignment;
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final today = DateTime.now();
+    final dateStr = '${today.day} ${months[today.month - 1]} ${today.year}';
+    int filled = 0;
+    for (final q in s.questions) {
+      if (q.comment.isNotEmpty) continue; // never overwrite typed values
+      final t = q.text.toLowerCase();
+      String? value;
+      if (t.contains('imo')) {
+        value = a.imo.replaceAll('IMO ', '');
+      } else if (t.contains('name')) {
+        value = a.vesselName;
+      } else if (t.contains('port')) {
+        value = a.port;
+      } else if (t.contains('scope') || t.contains('template') || t.contains('type of inspection')) {
+        value = a.templateName;
+      } else if (t.contains('date of inspection') || t.contains('inspection date')) {
+        value = dateStr;
+      }
+      if (value != null && value.trim().isNotEmpty) {
+        q.comment = value.trim();
+        _commentCtrl(q).text = q.comment;
+        q.answer = AnswerValue.pass;
+        filled++;
+      }
+    }
+    setState(() {});
+    if (filled > 0) _scheduleAutoSave();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+          content: Text(filled > 0
+              ? 'Auto-filled $filled field(s) from vessel data'
+              : 'No matching empty fields to auto-fill'),
+          duration: const Duration(seconds: 2)),
+    );
+  }
+
   Widget _buildGeneralInfoLayout(Section s) {
     return Container(
       color: const Color(0xFFFDF8ED),
@@ -779,13 +913,35 @@ class _InspectionScreenState extends State<InspectionScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(s.title,
-              style: const TextStyle(
-                  fontFamily: 'Georgia',
-                  fontFamilyFallback: ['Times New Roman', 'serif'],
-                  fontSize: 26,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFFE8630A))),
+          Row(
+            children: [
+              Expanded(
+                child: Text(s.title,
+                    style: const TextStyle(
+                        fontFamily: 'Georgia',
+                        fontFamilyFallback: ['Times New Roman', 'serif'],
+                        fontSize: 26,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFFE8630A))),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => _autoFillGeneralInfo(s),
+                icon: const Icon(Icons.bolt, size: 18, color: Colors.white),
+                label: const Text('Auto-fill'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFE8630A),
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  minimumSize: const Size(0, 44),
+                  padding: const EdgeInsets.symmetric(horizontal: 18),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  textStyle: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 30),
           ...s.questions.map((q) => _buildGeneralInfoQuestion(q)),
           const SizedBox(height: 20),
@@ -825,7 +981,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   ? TextField(
                 controller: _commentCtrl(q),
                 autofocus: true,
-                onChanged: (v) => q.comment = v,
+                onChanged: (v) { q.comment = v; _scheduleAutoSave(); },
                 onSubmitted: (_) => setState(() {
                   _editingField[q.id] = false;
                   q.answer = AnswerValue.pass;
@@ -860,7 +1016,28 @@ class _InspectionScreenState extends State<InspectionScreen> {
                             : const Color(0xFF2E1F12))),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
+            // AI button: asks the AI about this field
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: _aiBusy ? null : () => _aiGenerateComment(q),
+                icon: const Icon(Icons.auto_awesome,
+                    size: 16, color: Color(0xFFE8630A)),
+                label: Text(_aiBusy ? '…' : 'AI'),
+                style: OutlinedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFDF8ED),
+                  foregroundColor: const Color(0xFFE8630A),
+                  side:
+                  const BorderSide(color: Color(0xFFE8630A), width: 1.3),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  textStyle: const TextStyle(
+                      fontSize: 15, fontWeight: FontWeight.w700),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
             SizedBox(
               width: 150,
               height: 48,
@@ -897,6 +1074,11 @@ class _InspectionScreenState extends State<InspectionScreen> {
         TextField(
           maxLines: 4,
           maxLength: 1000,
+          controller: _extraCtrl(q),
+          onChanged: (v) {
+            q.commentByAnswer['__extra__'] = v;
+            _scheduleAutoSave();
+          },
           decoration: InputDecoration(
             filled: true,
             fillColor: const Color(0xFFFDF8ED),
@@ -916,6 +1098,82 @@ class _InspectionScreenState extends State<InspectionScreen> {
           ),
           style: const TextStyle(fontSize: 13),
         ),
+        // ─── AI answer boxes (same as standard questions) ───
+        if (_aiAnswers[q.id] != null && _aiAnswers[q.id]!.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.auto_awesome, size: 15, color: Color(0xFFFF6B00)),
+              const SizedBox(width: 6),
+              const Text('AI Analysis',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Color(0xFFFF6B00))),
+              const Spacer(),
+              InkWell(
+                onTap: () => setState(() => _aiAnswers.remove(q.id)),
+                child: const Icon(Icons.close, size: 16, color: Color(0xFFB59D7E)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...(() {
+            final sections = _aiSections(_aiAnswers[q.id] ?? '');
+            return List.generate(sections.length, (idx) {
+              final title = sections[idx]['title'] ?? 'Section ${idx + 1}';
+              final body = sections[idx]['body'] ?? '';
+              return Container(
+                width: double.infinity,
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF3EC),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFF6B00)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFF6B00),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text('${idx + 1}. $title',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: Colors.white)),
+                        ),
+                        const Spacer(),
+                        InkWell(
+                          onTap: () {
+                            final txt = _commentCtrl(q).text;
+                            final merged = txt.isEmpty ? body : '$txt\n$body';
+                            _commentCtrl(q).text = merged;
+                            q.comment = merged;
+                            setState(() {});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Copied "$title" to field'), duration: const Duration(seconds: 1)),
+                            );
+                          },
+                          child: Row(
+                            children: const [
+                              Icon(Icons.copy, size: 13, color: Color(0xFF5C2E0E)),
+                              SizedBox(width: 3),
+                              Text('Copy',
+                                  style: TextStyle(fontSize: 11, color: Color(0xFF5C2E0E), fontWeight: FontWeight.w700)),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(body, style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF2E1F12))),
+                  ],
+                ),
+              );
+            });
+          })(),
+        ],
         const SizedBox(height: 20),
         Container(height: 1, color: const Color(0xFFE8D9C0)),
         const SizedBox(height: 20),
@@ -988,6 +1246,11 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 const SizedBox(height: 10),
                 TextField(
                   maxLines: 4,
+                  controller: _obsCtrl(q),
+                  onChanged: (v) {
+                    q.commentByAnswer['__observation__'] = v;
+                    _scheduleAutoSave();
+                  },
                   decoration: InputDecoration(
                     hintText: 'Enter observation details...',
                     filled: true,
@@ -1044,7 +1307,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 maxLines: 4,
                 maxLength: 1000,
                 controller: _commentCtrl(q),
-                onChanged: (v) => q.comment = v,
+                onChanged: (v) { q.comment = v; _scheduleAutoSave(); },
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: const Color(0xFFFDF8ED),
@@ -1112,13 +1375,32 @@ class _InspectionScreenState extends State<InspectionScreen> {
                               const Spacer(),
                               InkWell(
                                 onTap: () {
-                                  final txt = _commentCtrl(q).text;
-                                  final merged = txt.isEmpty ? body : '$txt\n$body';
-                                  _commentCtrl(q).text = merged;
-                                  q.comment = merged;
+                                  final isFinding =
+                                  title.toLowerCase().contains('finding');
+                                  if (isFinding) {
+                                    // Typical Finding -> Observation box
+                                    final txt = _obsCtrl(q).text;
+                                    final merged =
+                                    txt.isEmpty ? body : '$txt\n$body';
+                                    _obsCtrl(q).text = merged;
+                                    q.commentByAnswer['__observation__'] =
+                                        merged;
+                                  } else {
+                                    final txt = _commentCtrl(q).text;
+                                    final merged =
+                                    txt.isEmpty ? body : '$txt\n$body';
+                                    _commentCtrl(q).text = merged;
+                                    q.comment = merged;
+                                  }
                                   setState(() {});
+                                  _scheduleAutoSave();
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Copied "$title" to comment'), duration: const Duration(seconds: 1)),
+                                    SnackBar(
+                                        content: Text(isFinding
+                                            ? 'Copied "$title" to Observation'
+                                            : 'Copied "$title" to comment'),
+                                        duration:
+                                        const Duration(seconds: 1)),
                                   );
                                 },
                                 child: Row(
@@ -1170,12 +1452,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
           const SizedBox(height: 14),
           // Existing photos grid (long-press a photo and drag to reorder)
           if (q.photos.isNotEmpty) ...[
-            if (q.photos.length > 1)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: Text('Tip: drag a photo onto another to change the order',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF8A6A4E))),
-              ),
+
             GridView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
@@ -1207,63 +1484,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
   /// Photo tile that can be long-pressed and dragged onto another tile
   /// to change the order of evidence photos.
   Widget _draggablePhotoTile(Question q, int idx) {
-    final tile = _photoCard(q, q.photos[idx], idx);
-    final feedback = Material(
-      color: Colors.transparent,
-      child: SizedBox(
-        width: 240,
-        child: Opacity(opacity: 0.85, child: tile),
-      ),
-    );
-    // On web/desktop a mouse can drag instantly; on phones long-press
-    // is used so normal scrolling still works.
-    final bool instantDrag = kIsWeb ||
-        defaultTargetPlatform == TargetPlatform.windows ||
-        defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.linux;
-
-    final target = DragTarget<int>(
-      onWillAcceptWithDetails: (d) => d.data != idx,
-      onAcceptWithDetails: (d) {
-        setState(() {
-          final moved = q.photos.removeAt(d.data);
-          q.photos.insert(idx, moved);
-          // keep the per-answer photo list in the same order
-          final key = Question.keyFor(q.answer);
-          if (q.photosByAnswer.containsKey(key)) {
-            q.photosByAnswer[key] = List.from(q.photos);
-          }
-        });
-      },
-      builder: (context, candidates, _) => Container(
-        decoration: candidates.isNotEmpty
-            ? BoxDecoration(
-          border:
-          Border.all(color: const Color(0xFFE8630A), width: 2),
-          borderRadius: BorderRadius.circular(10),
-        )
-            : null,
-        child: tile,
-      ),
-    );
-
-    if (instantDrag) {
-      return MouseRegion(
-        cursor: SystemMouseCursors.grab,
-        child: Draggable<int>(
-          data: idx,
-          feedback: feedback,
-          childWhenDragging: Opacity(opacity: 0.3, child: tile),
-          child: target,
-        ),
-      );
-    }
-    return LongPressDraggable<int>(
-      data: idx,
-      feedback: feedback,
-      childWhenDragging: Opacity(opacity: 0.3, child: tile),
-      child: target,
-    );
+    // Plain photo tile — no overlay marks.
+    return _photoCard(q, q.photos[idx], idx);
   }
 
   Widget _photoSlot(Question q) {
@@ -1409,7 +1631,10 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   icon: Icons.delete_outline,
                   label: 'Delete',
                   color: const Color(0xFFEF4444),
-                  onTap: () => setState(() => q.photos.removeAt(idx)),
+                  onTap: () {
+                    setState(() => q.photos.removeAt(idx));
+                    _scheduleAutoSave();
+                  },
                 ),
               ],
             ),
@@ -1484,6 +1709,8 @@ class _InspectionScreenState extends State<InspectionScreen> {
         _activeSectionId = sec.id;
         _activeQuestionId =
         sec.questions.isNotEmpty ? sec.questions.first.id : null;
+        _initialIdx = 0;
+        _scrollReq++; // reposition the list to the top of the section
       });
       // jump back to the top of the new section
       // (middle panel is a SingleChildScrollView; rebuild starts at top)
@@ -1557,9 +1784,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
     return Expanded(
       child: InkWell(
-        onTap: () => setState(() {
-          q.answer = q.answer == value ? null : value;
-        }),
+        onTap: () {
+          setState(() {
+            q.answer = q.answer == value ? null : value;
+            _activeQuestionId = q.id; // guide shows this question
+          });
+          _scheduleAutoSave();
+        },
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 14),
           alignment: Alignment.center,

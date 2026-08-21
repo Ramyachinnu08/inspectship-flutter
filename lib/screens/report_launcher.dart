@@ -107,8 +107,11 @@ class ReportLauncher {
 
     for (final item in structure) {
       if (item is! Map) continue;
+      // Group by SUB-AREA (e.g. "Section 1: General Information"),
+      // same as the inspection screen; falls back to category.
+      final subArea = (item['sub_area'] ?? item['subArea'] ?? '').toString().trim();
       final category = (item['category'] ?? 'General').toString().trim();
-      final cat = category.isEmpty ? 'General' : category;
+      final cat = subArea.isNotEmpty ? subArea : (category.isEmpty ? 'General' : category);
       if (!byCategory.containsKey(cat)) {
         byCategory[cat] = [];
         order.add(cat);
@@ -145,6 +148,12 @@ class ReportLauncher {
           commentByAns['$k'] = v.toString();
         });
       }
+      if (saved != null && (saved['observation'] ?? '').toString().isNotEmpty) {
+        commentByAns['__observation__'] = saved['observation'].toString();
+      }
+      if (saved != null && (saved['extra_comment'] ?? '').toString().isNotEmpty) {
+        commentByAns['__extra__'] = saved['extra_comment'].toString();
+      }
       final Map<String, List<EvidencePhoto>> photosByAns = {};
       if (saved != null && saved['photosByAnswer'] is Map) {
         (saved['photosByAnswer'] as Map).forEach((k, v) {
@@ -169,13 +178,44 @@ class ReportLauncher {
       ));
     }
 
+    // Numeric sort helpers (9.1, 9.2 ... 9.12 and Section 1, 2 ... 10)
+    List<int> numParts(String id) => RegExp(r'\d+')
+        .allMatches(id)
+        .map((m) => int.parse(m.group(0)!))
+        .toList();
+    int compareIds(String a, String b) {
+      final pa = numParts(a);
+      final pb = numParts(b);
+      for (var i = 0; i < pa.length && i < pb.length; i++) {
+        if (pa[i] != pb[i]) return pa[i].compareTo(pb[i]);
+      }
+      if (pa.length != pb.length) return pa.length.compareTo(pb.length);
+      return a.compareTo(b);
+    }
+    int sectionNum(String title) {
+      final m = RegExp(r'section\s*(\d+)', caseSensitive: false)
+          .firstMatch(title);
+      return m != null ? int.parse(m.group(1)!) : 999999;
+    }
+    for (final list in byCategory.values) {
+      list.sort((qa, qb) => compareIds(qa.id, qb.id));
+    }
+    order.sort((a, b) {
+      final na = sectionNum(a);
+      final nb = sectionNum(b);
+      if (na != nb) return na.compareTo(nb);
+      return a.compareTo(b);
+    });
+
     final palette = [0xFF3B82F6, 0xFFF59E0B, 0xFF22C55E, 0xFF8B5CF6, 0xFFEC4899, 0xFFEF4444];
     final sections = <Section>[];
     for (int i = 0; i < order.length; i++) {
       final cat = order[i];
+      final alreadyNumbered =
+      RegExp(r'^section\s*\d+', caseSensitive: false).hasMatch(cat);
       sections.add(Section(
         id: 'sec_$i',
-        title: 'Section ${i + 1}: $cat',
+        title: alreadyNumbered ? cat : 'Section ${i + 1}: $cat',
         colorHex: palette[i % palette.length],
         questions: byCategory[cat]!,
       ));

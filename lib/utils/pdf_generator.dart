@@ -284,6 +284,7 @@ class ReportPdfGenerator {
         bool borderRed = false,
       }) {
     return pw.MultiPage(
+      maxPages: 2000, // large inspections need many pages
       pageFormat: PdfPageFormat.a4,
       margin: const pw.EdgeInsets.fromLTRB(32, 28, 32, 28),
       build: (_) => [
