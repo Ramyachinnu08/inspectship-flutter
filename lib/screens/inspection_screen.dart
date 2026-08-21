@@ -297,12 +297,17 @@ class _InspectionScreenState extends State<InspectionScreen> {
           'departure". Example style: "One power supply socket at rescue boat davit was not '
           'provided with cap.")\n\n'
           '3. Suggested Answer/Comment\n(a ready-to-use inspector comment written as a factual '
-          'RECORD in past tense, like a professional marine inspection report. Structure: start '
-          'with quantities/inventory (e.g. "4 x 16 persons / 1 x 6 persons inflatable life '
-          'rafts"), then what was checked and how ("were checked at random and found in '
-          'satisfactory condition"), then relevant dates with placeholders the inspector fills '
-          'in (e.g. "Date of last shore service: __/__/____. Date of expiry: __/____."). Never '
-          'give instructions or recommendations - only record observations.)';
+          'RECORD in past tense, like a professional marine inspection report. Maximum 2-3 '
+          'sentences. Structure: start with quantities/inventory (e.g. "4 x 16 persons / 1 x 6 '
+          'persons inflatable life rafts"), then what was checked and how ("were checked at '
+          'random and found in satisfactory condition"), and by whom if relevant ("in presence '
+          'of Chief Engineer"). STRICT RULES: Do NOT add any "Date of last ..." or "Date of '
+          'next ..." lines. Never use blanks or placeholders such as __/__/____, DD/MM/YYYY, '
+          '[Date], ______ or N/A fields. Do not mention any date, serial number, maker or model '
+          'unless it is given in the question. Do not write "except as noted in the findings" '
+          'or "noted above". Use "at random" only when more than one item was checked. '
+          'Describe the answer as satisfactory (YES) unless the question clearly describes a '
+          'defect. Never give instructions or recommendations - only record observations.)';
       result = await ApiService.aiAsk(prompt);
       if (!mounted) return;
       setState(() {
