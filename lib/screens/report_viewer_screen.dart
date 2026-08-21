@@ -3,6 +3,53 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../utils/pdf_generator.dart';
 
+
+/// Shows a small progress dialog while the PDF is generated.
+Future<void> downloadReportWithProgress(
+    BuildContext context, Assignment assignment) async {
+  final pct = ValueNotifier<int>(0);
+  final msg = ValueNotifier<String>('Starting...');
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      title: const Text('Preparing PDF'),
+      content: ValueListenableBuilder<int>(
+        valueListenable: pct,
+        builder: (_, p, __) => Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            LinearProgressIndicator(
+                value: p / 100, color: const Color(0xFFFF6B00)),
+            const SizedBox(height: 10),
+            ValueListenableBuilder<String>(
+              valueListenable: msg,
+              builder: (_, m, __) => Text('$p%  $m',
+                  style: const TextStyle(fontSize: 13)),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  try {
+    await ReportPdfGenerator.generateAndPrint(assignment,
+        onProgress: (p, m) {
+          pct.value = p;
+          msg.value = m;
+        });
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('PDF error: $e')),
+      );
+    }
+  } finally {
+    if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+}
+
 class ReportViewerScreen extends StatelessWidget {
   final Assignment assignment;
   const ReportViewerScreen({super.key, required this.assignment});
@@ -81,15 +128,7 @@ class ReportViewerScreen extends StatelessWidget {
       backgroundColor: _pageBg,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
-          try {
-            await ReportPdfGenerator.generateAndPrint(assignment);
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('PDF error: $e')),
-              );
-            }
-          }
+          await downloadReportWithProgress(context, assignment);
         },
         backgroundColor: _orange,
         foregroundColor: Colors.white,
@@ -103,35 +142,6 @@ class ReportViewerScreen extends StatelessWidget {
         title: Text('${assignment.vesselName} — Inspection Report',
             style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             overflow: TextOverflow.ellipsis),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: ElevatedButton.icon(
-              onPressed: () async {
-                try {
-                  await ReportPdfGenerator.generateAndPrint(assignment);
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('PDF error: $e')),
-                    );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _orange,
-                foregroundColor: Colors.white,
-                padding:
-                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-              icon: const Icon(Icons.download, size: 16),
-              label: const Text('Download PDF',
-                  style: TextStyle(fontWeight: FontWeight.w700)),
-            ),
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
