@@ -793,7 +793,7 @@ class ReportPdfGenerator {
                 children: [
                   pw.SizedBox(
                     width: 56,
-                    child: pw.Text(q.id,
+                    child: pw.Text(q.number,
                         style: pw.TextStyle(
                             fontSize: 11,
                             fontWeight: pw.FontWeight.bold,
@@ -903,7 +903,7 @@ class ReportPdfGenerator {
         children: [
           pw.SizedBox(
             width: 50,
-            child: pw.Text(q.id,
+            child: pw.Text(q.number,
                 style: pw.TextStyle(
                     fontSize: 11,
                     fontWeight: pw.FontWeight.bold,
@@ -1022,7 +1022,7 @@ class ReportPdfGenerator {
     for (final q in a.allQuestions) {
       for (final p in q.photos) {
         items.add(_EvidenceItem(
-            questionId: q.id,
+            questionId: q.number,
             questionText: q.text,
             url: p.url,
             caption: p.caption,
@@ -1034,7 +1034,7 @@ class ReportPdfGenerator {
           final already = q.photos.any((ap) => ap.url == p.url);
           if (!already) {
             items.add(_EvidenceItem(
-                questionId: q.id,
+                questionId: q.number,
                 questionText: q.text,
                 url: p.url,
                 caption: p.caption,
@@ -1313,7 +1313,7 @@ class ReportPdfGenerator {
               child: pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('Q ${q.id}: ${q.text}',
+                  pw.Text('Q ${q.number}: ${q.text}',
                       style: pw.TextStyle(
                           fontSize: 10.5,
                           fontWeight: pw.FontWeight.bold,

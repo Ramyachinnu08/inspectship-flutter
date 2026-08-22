@@ -258,6 +258,96 @@ class _InspectionScreenState extends State<InspectionScreen> {
     return [{'title': 'AI Analysis', 'body': text.trim()}];
   }
 
+
+  /// RightShip / RISQ style comment prompt. The comment MUST agree with the
+  /// selected answer (yes/no/na/nv) and with the finding text for a No.
+  static String _buildCommentPrompt({
+    required String question,
+    required String section,
+    required String answer,
+    required String finding,
+  }) {
+    final b = StringBuffer();
+    b.writeln('You are a senior marine vessel inspector writing a formal RightShip (RISQ) style '
+        'inspection report. Plain text only - no asterisks, hashes or markdown.');
+    if (section.isNotEmpty) b.writeln('Section: $section');
+    b.writeln('Question: "$question"');
+    switch (answer) {
+      case 'yes': b.writeln('Selected answer: YES (in order / satisfactory).'); break;
+      case 'no': b.writeln('Selected answer: NO (deficiency observed).'); break;
+      case 'na': b.writeln('Selected answer: NOT APPLICABLE.'); break;
+      case 'nv': b.writeln('Selected answer: NOT VIEWED.'); break;
+      default: b.writeln('Selected answer: not yet chosen - assume YES.');
+    }
+    if (answer == 'no' && finding.isNotEmpty) {
+      b.writeln('Finding already recorded by the inspector: "$finding"');
+    }
+    b.writeln();
+    b.writeln('Answer in EXACTLY 3 numbered sections with these exact headings:');
+    b.writeln('1. What to Check');
+    b.writeln('(short practical checklist of what to verify on board)');
+    b.writeln();
+    b.writeln('2. Typical Finding');
+    if (answer == 'no') {
+      b.writeln(finding.isNotEmpty
+          ? '(Rewrite the recorded finding above as ONE factual deficiency statement in past '
+          'tense. Keep the same defect, location and component - do not invent a different one.)'
+          : '(ONE factual deficiency statement in past tense: location + component + defect + '
+          'consequence, e.g. "One air pipe on the forward main deck leading to the forepeak '
+          'ballast tank was heavily corroded with a through-thickness hole near the deck '
+          'penetration.")');
+    } else {
+      b.writeln('(Write exactly: "No deficiency observed.")');
+    }
+    b.writeln();
+    b.writeln('3. Suggested Answer/Comment');
+    b.writeln('(a ready-to-use inspector comment, past tense, factual record, maximum 2 sentences.)');
+    switch (answer) {
+      case 'no':
+        b.writeln('Structure: what was checked (quantities, e.g. "2 x 35 persons lifeboats"), how, '
+            'and by whom ("in the presence of the Chief Officer"), THEN end with the deficiency '
+            'from section 2. The comment must describe the SAME defect as the finding. Never say '
+            '"found in satisfactory condition" for the item that is defective.');
+        break;
+      case 'na':
+        b.writeln('Write 1-2 sentences as a factual record: state what arrangement the vessel has '
+            'or does not have and WHY this question does not apply (e.g. "Vessel is not fitted '
+            'with an exhaust gas cleaning system; compliant low-sulphur fuel is used and no EGCS '
+            'procedures are required in the SMS."). You may mention the document or person who '
+            'confirmed it ("confirmed with the Chief Engineer"). Do NOT write that the item was '
+            'inspected or tested, and do NOT use "found in satisfactory condition".');
+        break;
+      case 'nv':
+        b.writeln('Write 1-2 sentences as a factual record: state WHY the item could not be '
+            'sighted (e.g. cargo operations in progress, space not accessible, vessel at sea, '
+            'weather) and what supporting evidence WAS available (e.g. PMS records, last '
+            'inspection report, photographs, officer statement). Example: "Duct keel was not '
+            'entered as cargo operations were in progress. PMS records showed the last internal '
+            'inspection completed by ship staff with no defects recorded." Do NOT use the words '
+            'inspected, tested or satisfactory for the item itself.');
+        break;
+      default:
+        b.writeln('Structure: quantities/inventory, what was checked and how ("were checked at '
+            'random and found in order"), and by whom if relevant ("in the presence of the Chief '
+            'Engineer"). The answer is YES, so do NOT use: missing, incomplete, unsatisfactory, '
+            'not in satisfactory condition, failed, lacked, overdue, except, "except for", '
+            '"as noted in the findings", "noted above", "previously noted", or any deficiency.');
+    }
+    b.writeln();
+    b.writeln('STRICT WORDING RULES:');
+    b.writeln('- Certificates, records, plans, manuals, logbooks and agreements are "found valid", '
+        '"found in order" or "found up to date" - never "in satisfactory condition".');
+    b.writeln('- Use "at random" only when several items were checked, and never together with '
+        '"All" (write "All 5 hatch covers were checked" OR "3 x hatch covers were checked at random").');
+    b.writeln('- Do not prefix a single document with "1 x"; use counts only for equipment.');
+    b.writeln('- Neutral voice: write "no documented measures were in place", never "the Master failed to".');
+    b.writeln('- No dates, serial numbers, makers or models unless given in the question. '
+        'No placeholders such as __/__/____, DD/MM/YYYY, [Date] or N/A fields.');
+    b.writeln('- Record observations only. No recommendations, "should", "must", "immediately", '
+        '"prior to departure" or corrective actions.');
+    return b.toString();
+  }
+
   // Answer the question text (uses attached photo if one exists, else text-only)
   Future<void> _aiGenerateComment(Question q) async {
     if (_aiBusy) return;
@@ -285,29 +375,16 @@ class _InspectionScreenState extends State<InspectionScreen> {
       });
     } else {
       // no photo -> answer the question as text
-      final prompt =
-          'You are a senior marine vessel inspector writing a formal inspection report '
-          '(RightShip / SIRE style). For this inspection question: "${q.text}", answer in '
-          'EXACTLY 3 numbered sections. Do NOT use asterisks, hashes or any markdown. '
-          'Plain text only. Use these exact headings:\n'
-          '1. What to Check\n(short practical checklist of what to verify on board)\n\n'
-          '2. Typical Finding\n(ONE factual deficiency statement in past tense, exactly as it '
-          'would appear in a report finding. State only WHAT was observed - never include '
-          'corrective actions, recommendations, "should", "must", "immediately" or "prior to '
-          'departure". Example style: "One power supply socket at rescue boat davit was not '
-          'provided with cap.")\n\n'
-          '3. Suggested Answer/Comment\n(a ready-to-use inspector comment written as a factual '
-          'RECORD in past tense, like a professional marine inspection report. Maximum 2-3 '
-          'sentences. Structure: start with quantities/inventory (e.g. "4 x 16 persons / 1 x 6 '
-          'persons inflatable life rafts"), then what was checked and how ("were checked at '
-          'random and found in satisfactory condition"), and by whom if relevant ("in presence '
-          'of Chief Engineer"). STRICT RULES: Do NOT add any "Date of last ..." or "Date of '
-          'next ..." lines. Never use blanks or placeholders such as __/__/____, DD/MM/YYYY, '
-          '[Date], ______ or N/A fields. Do not mention any date, serial number, maker or model '
-          'unless it is given in the question. Do not write "except as noted in the findings" '
-          'or "noted above". Use "at random" only when more than one item was checked. '
-          'Describe the answer as satisfactory (YES) unless the question clearly describes a '
-          'defect. Never give instructions or recommendations - only record observations.)';
+      // Tell the AI which answer was selected and what the observation
+      // (finding) says, so comment / answer / finding never contradict.
+      final ansKey = Question.keyFor(q.answer);
+      final finding = (q.commentByAnswer['__observation__'] ?? '').trim();
+      String secTitle = '';
+      for (final s in widget.assignment.sections) {
+        if (s.questions.any((x) => x.id == q.id)) { secTitle = s.title; break; }
+      }
+      final prompt = _buildCommentPrompt(
+          question: q.text, section: secTitle, answer: ansKey, finding: finding);
       result = await ApiService.aiAsk(prompt);
       if (!mounted) return;
       setState(() {
@@ -733,7 +810,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
           children: [
             SizedBox(
               width: 24,
-              child: Text(q.id,
+              child: Text(q.number,
                   style: const TextStyle(
                       fontSize: 10, color: Color(0xFFC49A6C))),
             ),
@@ -969,7 +1046,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 fontWeight: FontWeight.w700,
                 color: Color(0xFF5C2E0E)),
             children: [
-              TextSpan(text: '${q.id} ${q.text}'),
+              TextSpan(text: '${q.number} ${q.text}'),
               const TextSpan(text: ': '),
               if (q.required)
                 const TextSpan(
@@ -1193,7 +1270,7 @@ class _InspectionScreenState extends State<InspectionScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // Question heading: "2.1.1  Are all fire extinguishers..." plain on cream
-        Text('${q.id}  ${q.text}',
+        Text('${q.number}  ${q.text}',
             style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w700,

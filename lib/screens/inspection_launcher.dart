@@ -143,6 +143,14 @@ class InspectionLauncher {
     );
   }
 
+
+  /// "Section 7B: Fuel Management (LNG)" -> "7B"; otherwise a slug of the title.
+  static String _sectionKey(String title) {
+    final m = RegExp(r'Section\s+([0-9]+[A-Za-z]?)', caseSensitive: false).firstMatch(title);
+    if (m != null) return m.group(1)!.toUpperCase();
+    return title.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
+  }
+
   static List<Section> _buildSections(dynamic templateSections, Map<String, Map> savedById) {
     // Get the published structure (flat list of questions)
     List<dynamic>? structure;
@@ -191,7 +199,11 @@ class InspectionLauncher {
         order.add(cat);
       }
 
-      final qid = (item['sub_number'] ?? item['subNumber'] ?? item['id'] ?? '').toString();
+      final qNum = (item['sub_number'] ?? item['subNumber'] ?? item['id'] ?? '').toString();
+      // Unique key per section: "7B|7.4" instead of just "7.4" so that
+      // sections 7A/7B/7C/7D (or 8A-8F, 9A/9B) never share saved answers.
+      final secKey = _sectionKey(cat);
+      final qid = qNum.isEmpty ? '' : '$secKey|$qNum';
       final text = (item['question'] ?? item['text'] ?? '').toString();
       final guide = (item['guide_to_inspection'] ?? item['inspectionGuide'] ?? '').toString();
       final required = item['evidence_required'] == true || item['evidenceRequired'] == true;
@@ -199,7 +211,8 @@ class InspectionLauncher {
       // Pre-fill from saved answers
       AnswerValue? answer;
       String comment = '';
-      final saved = savedById[qid];
+      // new unique key first; fall back to legacy "7.4" key for old drafts
+      final saved = savedById[qid] ?? savedById[qNum];
       if (saved != null) {
         final ans = (saved['answer'] ?? '').toString();
         if (ans == 'yes') answer = AnswerValue.pass;

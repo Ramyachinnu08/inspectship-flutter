@@ -717,7 +717,7 @@ class _AnswerBlock extends StatelessWidget {
                           children: [
                             SizedBox(
                               width: 56,
-                              child: Text(q.id,
+                              child: Text(q.number,
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -810,7 +810,7 @@ class _AnswerBlock extends StatelessWidget {
         children: [
           SizedBox(
             width: 50,
-            child: Text(q.id,
+            child: Text(q.number,
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -936,7 +936,7 @@ class _EvidencePhotosPage extends StatelessWidget {
     for (final q in assignment.allQuestions) {
       // active photos
       for (final p in q.photos) {
-        items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment, answerKey: Question.keyFor(q.answer)));
+        items.add(_EvidenceItem(questionId: q.number, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment, answerKey: Question.keyFor(q.answer)));
       }
       // per-answer photos
       q.photosByAnswer.forEach((ansKey, list) {
@@ -944,7 +944,7 @@ class _EvidencePhotosPage extends StatelessWidget {
           // avoid duplicating the active ones
           final already = q.photos.any((ap) => ap.url == p.url);
           if (!already) {
-            items.add(_EvidenceItem(questionId: q.id, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey, questionComment: q.commentByAnswer[ansKey] ?? q.comment));
+            items.add(_EvidenceItem(questionId: q.number, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey, questionComment: q.commentByAnswer[ansKey] ?? q.comment));
           }
         }
       });
@@ -1265,7 +1265,7 @@ class _SummaryPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Q ${q.id}: ${q.text}',
+                  Text('Q ${q.number}: ${q.text}',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Color(0xFF991B1B))),
                   if (q.comment.isNotEmpty) ...[
                     const SizedBox(height: 4),

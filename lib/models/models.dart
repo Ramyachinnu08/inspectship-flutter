@@ -45,6 +45,11 @@ class Question {
 
   bool get isAnswered => answer != null;
 
+  /// Display number (e.g. "7.4"). `id` is the unique storage key
+  /// "<sectionKey>|<number>" so that 7A/7B/7C/7D questions with the
+  /// same number no longer overwrite each other.
+  String get number => id.contains('|') ? id.split('|').last : id;
+
   // Key helper for the current answer
   static String keyFor(AnswerValue? a) {
     switch (a) {
