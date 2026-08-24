@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/offline_ai.dart';
 import 'package:flutter/foundation.dart';
 import '../api_service.dart';
 import '../offline_store.dart';
@@ -254,6 +255,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             _kvRow('Pending sync', '$_pendingSync inspection(s)'),
                           ])),
                           const SizedBox(height: 16),
+                          // Offline AI model
+                          _OfflineAiCard(card: _card, title: _cardTitle),
+                          const SizedBox(height: 16),
                           // Offline Storage
                           _card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             _cardTitle(Icons.inventory_2_outlined, 'Offline Storage'),
@@ -413,6 +417,87 @@ class _ChangePasswordDialogState extends State<_ChangePasswordDialog> {
               : const Text('Update'),
         ),
       ],
+    );
+  }
+}
+
+/// Card to download / remove the on-device AI model (works without internet).
+class _OfflineAiCard extends StatefulWidget {
+  final Widget Function({required Widget child}) card;
+  final Widget Function(IconData, String) title;
+  const _OfflineAiCard({required this.card, required this.title});
+  @override
+  State<_OfflineAiCard> createState() => _OfflineAiCardState();
+}
+
+class _OfflineAiCardState extends State<_OfflineAiCard> {
+  bool? _installed;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    OfflineAI.instance.isInstalled().then((v) {
+      if (mounted) setState(() => _installed = v);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!OfflineAI.instance.supported) return const SizedBox.shrink();
+    return widget.card(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        widget.title(Icons.offline_bolt_outlined, 'Offline AI'),
+        const SizedBox(height: 6),
+        Text(
+          _installed == true
+              ? 'Installed. AI comments and grammar fix work without internet.'
+              : 'Download the AI model (~550 MB, Wi-Fi recommended) to use the AI button and auto-correct at sea without internet.',
+          style: const TextStyle(fontSize: 13.5, color: Color(0xFF7A5A3A)),
+        ),
+        const SizedBox(height: 10),
+        ValueListenableBuilder<int?>(
+          valueListenable: OfflineAI.instance.downloadProgress,
+          builder: (_, p, __) {
+            if (p != null) {
+              return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                LinearProgressIndicator(value: p / 100, color: const Color(0xFFE8630A)),
+                const SizedBox(height: 6),
+                Text('Downloading… $p%', style: const TextStyle(fontSize: 12.5)),
+              ]);
+            }
+            return Row(children: [
+              if (_installed != true)
+                ElevatedButton.icon(
+                  onPressed: _busy ? null : () async {
+                    setState(() => _busy = true);
+                    final ok = await OfflineAI.instance.download();
+                    final inst = await OfflineAI.instance.isInstalled();
+                    if (!mounted) return;
+                    setState(() { _busy = false; _installed = inst; });
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(ok ? 'Offline AI ready ✅' : 'Download failed. Check Wi-Fi and server.')));
+                  },
+                  icon: const Icon(Icons.download, size: 18),
+                  label: const Text('Download model'),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFE8630A), foregroundColor: Colors.white),
+                ),
+              if (_installed == true)
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () async {
+                    setState(() => _busy = true);
+                    await OfflineAI.instance.delete();
+                    if (!mounted) return;
+                    setState(() { _busy = false; _installed = false; });
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Remove model'),
+                ),
+            ]);
+          },
+        ),
+      ]),
     );
   }
 }

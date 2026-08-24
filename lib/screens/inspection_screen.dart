@@ -1,5 +1,9 @@
 import 'dart:convert';
 import 'dart:async';
+import '../utils/offline_grammar.dart';
+import '../offline_store.dart';
+import '../services/offline_ai.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
@@ -48,6 +52,143 @@ class _InspectionScreenState extends State<InspectionScreen> {
             () => TextEditingController(
             text: q.commentByAnswer['__extra__'] ?? ''));
   }
+  // ─── Voice dictation (mic button on every text box) ────────────────────
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechReady = false;
+  String? _listeningKey;          // which box is currently recording
+  String _speechBase = '';        // text in the box before recording started
+
+  Future<void> _toggleMic(String key, TextEditingController ctrl, void Function(String) apply) async {
+    if (_listeningKey == key) {
+      await _speech.stop();
+      setState(() => _listeningKey = null);
+      _runFix(key, ctrl, apply, immediate: true);   // grammar-fix the dictated text
+      return;
+    }
+    if (_listeningKey != null) await _speech.stop();
+    if (!_speechReady) {
+      _speechReady = await _speech.initialize(
+        onStatus: (st) {
+          if ((st == 'done' || st == 'notListening') && mounted && _listeningKey != null) {
+            final k = _listeningKey!;
+            setState(() => _listeningKey = null);
+            if (k == key) _runFix(key, ctrl, apply, immediate: true);
+          }
+        },
+        onError: (e) {
+          if (mounted) setState(() => _listeningKey = null);
+        },
+      );
+      if (!_speechReady) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Microphone / speech recognition not available. Check permission.')));
+        }
+        return;
+      }
+    }
+    _speechBase = ctrl.text.trimRight();
+    if (_speechBase.isNotEmpty && !_speechBase.endsWith(' ')) _speechBase += ' ';
+    setState(() => _listeningKey = key);
+    await _speech.listen(
+      localeId: 'en_GB',
+      listenFor: const Duration(minutes: 2),
+      pauseFor: const Duration(seconds: 5),
+      partialResults: true,
+      onResult: (r) {
+        final text = _speechBase + r.recognizedWords;
+        ctrl.value = TextEditingValue(
+          text: text,
+          selection: TextSelection.collapsed(offset: text.length),
+        );
+        apply(text);
+        _scheduleAutoSave();
+        if (r.finalResult) _speechBase = text.trimRight() + ' ';
+      },
+    );
+  }
+
+  Widget _micButton(String key, TextEditingController ctrl, void Function(String) apply) {
+    final on = _listeningKey == key;
+    return IconButton(
+      tooltip: on ? 'Stop recording' : 'Speak to type',
+      icon: Icon(on ? Icons.stop_circle : Icons.mic,
+          color: on ? const Color(0xFFDC2626) : const Color(0xFFE8630A)),
+      onPressed: () => _toggleMic(key, ctrl, apply),
+    );
+  }
+
+  // ─── Auto grammar correction ───────────────────────────────────────────
+  // After the inspector pauses typing (2.5 s) or leaves the box, the text is
+  // sent to the AI and replaced with proper English. Meaning is not changed.
+  // A short "Undo" snackbar restores the original if the correction is wrong.
+  final Map<String, Timer> _fixTimers = {};
+  final Map<String, String> _lastFixed = {};   // key -> text we already corrected
+  final Map<String, FocusNode> _fixFocus = {};
+
+  FocusNode _focusFor(String key, TextEditingController ctrl, void Function(String) apply) {
+    return _fixFocus.putIfAbsent(key, () {
+      final n = FocusNode();
+      n.addListener(() {
+        if (!n.hasFocus) _runFix(key, ctrl, apply, immediate: true);
+      });
+      return n;
+    });
+  }
+
+  void _scheduleFix(String key, TextEditingController ctrl, void Function(String) apply) {
+    _fixTimers[key]?.cancel();
+    _fixTimers[key] = Timer(const Duration(milliseconds: 2500), () => _runFix(key, ctrl, apply));
+  }
+
+  Future<void> _runFix(String key, TextEditingController ctrl, void Function(String) apply,
+      {bool immediate = false}) async {
+    _fixTimers[key]?.cancel();
+    final original = ctrl.text;
+    final trimmed = original.trim();
+    if (trimmed.length < 4 || _lastFixed[key] == trimmed) return;
+    // while focused, only correct when the inspector has ended a sentence
+    if (!immediate && !RegExp(r'[.!?]\s*$').hasMatch(trimmed)) return;
+    // Online: Gemini rewrite. Offline (or server error): rules-based clean-up.
+    final online = await OfflineStore.instance.isOnline();
+    String? fixed = online ? await ApiService.aiFixGrammar(trimmed) : null;
+    final usedOffline = fixed == null;
+    // Offline: on-device AI model if installed, else rules-based clean-up
+    fixed ??= await OfflineAI.instance.fixGrammar(trimmed);
+    fixed ??= OfflineGrammar.fix(trimmed);
+    if (!mounted) return;
+    final cleaned = fixed.trim();
+    _lastFixed[key] = cleaned;
+    if (cleaned == trimmed || ctrl.text.trim() != trimmed) return; // text changed meanwhile
+    setState(() {
+      ctrl.value = TextEditingValue(
+        text: cleaned,
+        selection: TextSelection.collapsed(offset: cleaned.length),
+      );
+      apply(cleaned);
+    });
+    _scheduleAutoSave();
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(usedOffline ? 'Text auto-corrected (offline basic fix)' : 'Text auto-corrected'),
+      duration: const Duration(seconds: 4),
+      action: SnackBarAction(
+        label: 'UNDO',
+        onPressed: () {
+          _lastFixed[key] = original.trim();
+          setState(() {
+            ctrl.value = TextEditingValue(
+              text: original,
+              selection: TextSelection.collapsed(offset: original.length),
+            );
+            apply(original);
+          });
+          _scheduleAutoSave();
+        },
+      ),
+    ));
+  }
+
   String _leftTab = 'sections';
   String? _activeSectionId;
   String? _activeQuestionId;
@@ -385,7 +526,24 @@ class _InspectionScreenState extends State<InspectionScreen> {
       }
       final prompt = _buildCommentPrompt(
           question: q.text, section: secTitle, answer: ansKey, finding: finding);
-      result = await ApiService.aiAsk(prompt);
+      final online = await OfflineStore.instance.isOnline();
+      if (online) {
+        result = await ApiService.aiAsk(prompt);
+      } else {
+        result = {'success': false, 'answer': 'Cannot connect to AI service'};
+      }
+      // Offline (or server unreachable): use the on-device model + cached documents
+      if (result['success'] != true) {
+        final local = await OfflineAI.instance.commentWithDocs(prompt, q.text);
+        if (local != null && local.isNotEmpty) {
+          result = {'success': true, 'answer': local, 'offline': true};
+        } else if (!online) {
+          result = {
+            'success': false,
+            'answer': 'You are offline. Download the Offline AI model from Profile to use AI without internet.'
+          };
+        }
+      }
       if (!mounted) return;
       setState(() {
         _aiBusy = false;
@@ -447,6 +605,9 @@ class _InspectionScreenState extends State<InspectionScreen> {
 
   @override
   void dispose() {
+    _speech.stop();
+    for (final t in _fixTimers.values) { t.cancel(); }
+    for (final n in _fixFocus.values) { n.dispose(); }
     _autoSaveTimer?.cancel();
     for (final ctrl in _commentControllers.values) {
       ctrl.dispose();
@@ -1063,12 +1224,17 @@ class _InspectionScreenState extends State<InspectionScreen> {
                   ? TextField(
                 controller: _commentCtrl(q),
                 autofocus: true,
-                onChanged: (v) { q.comment = v; _scheduleAutoSave(); },
+                focusNode: _focusFor('c:${q.id}', _commentCtrl(q), (t) => q.comment = t),
+                onChanged: (v) {
+                  q.comment = v; _scheduleAutoSave();
+                  _scheduleFix('c:${q.id}', _commentCtrl(q), (t) => q.comment = t);
+                },
                 onSubmitted: (_) => setState(() {
                   _editingField[q.id] = false;
                   q.answer = AnswerValue.pass;
                 }),
                 decoration: InputDecoration(
+                  suffixIcon: _micButton('c:${q.id}', _commentCtrl(q), (t) => q.comment = t),
                   filled: true,
                   fillColor: const Color(0xFFFDF8ED),
                   border: OutlineInputBorder(
@@ -1082,20 +1248,36 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 style: const TextStyle(fontSize: 14),
               )
                   : Container(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12),
+                padding: const EdgeInsets.only(left: 14, right: 4, top: 2, bottom: 2),
                 decoration: BoxDecoration(
                   color: const Color(0xFFF3E7D3),
                   border: Border.all(color: const Color(0xFFE8D9C0)),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(
-                    q.comment.isEmpty ? '(No value)' : q.comment,
-                    style: TextStyle(
-                        fontSize: 14,
-                        color: q.comment.isEmpty
-                            ? const Color(0xFFB59D7E)
-                            : const Color(0xFF2E1F12))),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                          q.comment.isEmpty ? '(No value)' : q.comment,
+                          style: TextStyle(
+                              fontSize: 14,
+                              color: q.comment.isEmpty
+                                  ? const Color(0xFFB59D7E)
+                                  : const Color(0xFF2E1F12))),
+                    ),
+                    // Mic on the read-only box: opens edit mode and starts recording
+                    IconButton(
+                      tooltip: 'Speak to type',
+                      icon: const Icon(Icons.mic, color: Color(0xFFE8630A)),
+                      onPressed: () {
+                        setState(() => _editingField[q.id] = true);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _toggleMic('c:${q.id}', _commentCtrl(q), (t) => q.comment = t);
+                        });
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(width: 12),
@@ -1157,11 +1339,14 @@ class _InspectionScreenState extends State<InspectionScreen> {
           maxLines: 4,
           maxLength: 1000,
           controller: _extraCtrl(q),
+          focusNode: _focusFor('x:${q.id}', _extraCtrl(q), (t) => q.commentByAnswer['__extra__'] = t),
           onChanged: (v) {
             q.commentByAnswer['__extra__'] = v;
             _scheduleAutoSave();
+            _scheduleFix('x:${q.id}', _extraCtrl(q), (t) => q.commentByAnswer['__extra__'] = t);
           },
           decoration: InputDecoration(
+            suffixIcon: _micButton('x:${q.id}', _extraCtrl(q), (t) => q.commentByAnswer['__extra__'] = t),
             filled: true,
             fillColor: const Color(0xFFFDF8ED),
             border: OutlineInputBorder(
@@ -1329,11 +1514,14 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 TextField(
                   maxLines: 4,
                   controller: _obsCtrl(q),
+                  focusNode: _focusFor('o:${q.id}', _obsCtrl(q), (t) => q.commentByAnswer['__observation__'] = t),
                   onChanged: (v) {
                     q.commentByAnswer['__observation__'] = v;
                     _scheduleAutoSave();
+                    _scheduleFix('o:${q.id}', _obsCtrl(q), (t) => q.commentByAnswer['__observation__'] = t);
                   },
                   decoration: InputDecoration(
+                    suffixIcon: _micButton('o:${q.id}', _obsCtrl(q), (t) => q.commentByAnswer['__observation__'] = t),
                     hintText: 'Enter observation details...',
                     filled: true,
                     fillColor: const Color(0xFFFDF8ED),
@@ -1389,8 +1577,13 @@ class _InspectionScreenState extends State<InspectionScreen> {
                 maxLines: 4,
                 maxLength: 1000,
                 controller: _commentCtrl(q),
-                onChanged: (v) { q.comment = v; _scheduleAutoSave(); },
+                focusNode: _focusFor('c:${q.id}', _commentCtrl(q), (t) => q.comment = t),
+                onChanged: (v) {
+                  q.comment = v; _scheduleAutoSave();
+                  _scheduleFix('c:${q.id}', _commentCtrl(q), (t) => q.comment = t);
+                },
                 decoration: InputDecoration(
+                  suffixIcon: _micButton('c:${q.id}', _commentCtrl(q), (t) => q.comment = t),
                   filled: true,
                   fillColor: const Color(0xFFFDF8ED),
                   border: OutlineInputBorder(

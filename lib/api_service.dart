@@ -175,6 +175,26 @@ class ApiService {
   }
 
   // SUBMIT inspection
+  /// Upload the app-generated PDF so the backend emails it to admin + Master.
+  static Future<Map<String, dynamic>> emailReport(
+      int inspectionId, List<int> pdfBytes, String filename, {int findings = 0}) async {
+    try {
+      final req = http.MultipartRequest('POST',
+          Uri.parse('${ApiConfig.baseUrl}/api/inspector/inspections/$inspectionId/email-report'));
+      final h = await _headers();
+      h.remove('Content-Type');
+      req.headers.addAll(h);
+      req.fields['findings'] = '$findings';
+      req.files.add(http.MultipartFile.fromBytes('file', pdfBytes, filename: filename));
+      final streamed = await req.send().timeout(const Duration(seconds: 90));
+      final body = await streamed.stream.bytesToString();
+      final data = jsonDecode(body);
+      return {'success': data['success'] == true, 'message': data['message'] ?? ''};
+    } catch (e) {
+      return {'success': false, 'message': 'Could not email report: $e'};
+    }
+  }
+
   static Future<Map<String, dynamic>?> submitInspection(int inspectionId) async {
     try {
       final res = await http.post(
@@ -222,6 +242,22 @@ class ApiService {
 
   // ─── AI FEATURES ───────────────────────────────────────
   // Ask AI a question
+  /// Auto-correct spelling/grammar of inspector-typed text (meaning unchanged).
+  static Future<String?> aiFixGrammar(String text) async {
+    try {
+      final res = await http.post(
+        Uri.parse('${ApiConfig.baseUrl}/api/ai/fix-grammar'),
+        headers: await _headers(),
+        body: jsonEncode({'text': text}),
+      ).timeout(const Duration(seconds: 12));
+      final data = jsonDecode(res.body);
+      if (data['success'] == true && data['text'] is String) return data['text'] as String;
+      return null;
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<Map<String, dynamic>> aiAsk(String question, {String context = ''}) async {
     try {
       final res = await http.post(

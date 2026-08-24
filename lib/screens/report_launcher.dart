@@ -79,6 +79,13 @@ class ReportLauncher {
     );
   }
 
+  /// "Section 7B: Fuel Management (LNG)" -> "7B"; otherwise a slug of the title.
+  static String _sectionKey(String title) {
+    final m = RegExp(r'Section\s+([0-9]+[A-Za-z]?)', caseSensitive: false).firstMatch(title);
+    if (m != null) return m.group(1)!.toUpperCase();
+    return title.replaceAll(RegExp(r'[^A-Za-z0-9]+'), '_');
+  }
+
   static List<Section> _buildSections(dynamic templateSections, Map<String, Map> savedById) {
     List<dynamic>? structure;
     if (templateSections is Map && templateSections['draftVersions'] is List) {
@@ -116,14 +123,18 @@ class ReportLauncher {
         byCategory[cat] = [];
         order.add(cat);
       }
-      final qid = (item['sub_number'] ?? item['subNumber'] ?? item['id'] ?? '').toString();
+      final qNum = (item['sub_number'] ?? item['subNumber'] ?? item['id'] ?? '').toString();
+      // Unique key per section ("7B|7.4") - must match inspection_launcher.dart
+      final secKey = _sectionKey(cat);
+      final qid = qNum.isEmpty ? '' : '$secKey|$qNum';
       final text = (item['question'] ?? item['text'] ?? '').toString();
       final guide = (item['guide_to_inspection'] ?? item['inspectionGuide'] ?? '').toString();
       final required = item['evidence_required'] == true || item['evidenceRequired'] == true;
 
       AnswerValue? answer;
       String comment = '';
-      final saved = savedById[qid];
+      // new key first, legacy "7.4" key for reports submitted before the fix
+      final saved = savedById[qid] ?? savedById[qNum];
       if (saved != null) {
         final ans = (saved['answer'] ?? '').toString();
         if (ans == 'yes') answer = AnswerValue.pass;

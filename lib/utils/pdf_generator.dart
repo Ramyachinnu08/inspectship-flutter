@@ -146,6 +146,13 @@ class ReportPdfGenerator {
         '${assignment.vesselName.replaceAll(' ', '_')}_Inspection_Report.pdf');
   }
 
+  /// Builds the PDF and returns the bytes (no download). Used to email the report.
+  static Future<List<int>> generateBytes(Assignment assignment) async {
+    _progress = null;
+    final pdf = await _buildDocument(assignment);
+    return pdf.save();
+  }
+
   /// Creates a Blob URL and triggers download via a temporary anchor element.
   static void _downloadInBrowser(List<int> bytes, String filename) {
     final base64 = base64Encode(bytes);

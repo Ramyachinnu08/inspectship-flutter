@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/pdf_generator.dart';
 import '../app_events.dart';
 import '../models/models.dart';
 import '../data/mock_store.dart';
@@ -91,6 +92,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
               // Submit to backend
               final inspectionId = InspectionSession.currentInspectionId;
               bool ok = false;
+              String emailMsg = '';
               if (inspectionId != null) {
                 // build answers from the assignment model
                 final answers = <String, dynamic>{};
@@ -133,6 +135,21 @@ class _SignOffScreenState extends State<SignOffScreen> {
                       masterName: _masterNameCtrl.text, masterEmail: _masterEmailCtrl.text);
                   final result = await ApiService.submitInspection(inspectionId);
                   ok = result != null;
+                  if (ok) {
+                    // Email a copy of the PDF report to admin + Master (best effort)
+                    try {
+                      final bytes = await ReportPdfGenerator.generateBytes(widget.assignment);
+                      final fname =
+                          '${widget.assignment.vesselName.replaceAll(' ', '_')}_Inspection_Report.pdf';
+                      final mail = await ApiService.emailReport(inspectionId, bytes, fname,
+                          findings: widget.assignment.findings);
+                      emailMsg = mail['success'] == true
+                          ? ' Report emailed.'
+                          : ' (Email not sent: ${mail['message']})';
+                    } catch (e) {
+                      emailMsg = ' (Email not sent: $e)';
+                    }
+                  }
                   // save local copy as submitted
                   await OfflineStore.instance.saveLocalInspection(
                     assignmentKey,
@@ -173,7 +190,7 @@ class _SignOffScreenState extends State<SignOffScreen> {
                     content: Text(!wasOnline
                         ? 'Saved offline ✅ Will sync when back online (Drafts → Sync Now).'
                         : ok
-                        ? 'Inspection submitted ✅ Report created for admin review.'
+                        ? 'Inspection submitted ✅ Report created for admin review.$emailMsg'
                         : 'Saved offline. Sync from Drafts when online.'),
                     backgroundColor: ok ? const Color(0xFF22C55E) : const Color(0xFFF59E0B)),
               );

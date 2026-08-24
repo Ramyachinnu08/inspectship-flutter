@@ -49,5 +49,9 @@
     <string>RightKnots uses the camera to capture inspection evidence photos.</string>
     <key>NSPhotoLibraryUsageDescription</key>
     <string>RightKnots needs photo library access to attach evidence images.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>RightKnots uses the microphone to dictate inspection comments.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>RightKnots converts your speech into inspection comments.</string>
 </dict>
 </plist>
