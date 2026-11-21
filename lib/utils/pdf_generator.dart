@@ -800,11 +800,14 @@ class ReportPdfGenerator {
                 children: [
                   pw.SizedBox(
                     width: 56,
-                    child: pw.Text(q.number,
-                        style: pw.TextStyle(
-                            fontSize: 11,
-                            fontWeight: pw.FontWeight.bold,
-                            color: _navy)),
+                    child: pw.Anchor(
+                      name: 'q_${q.id}',
+                      child: pw.Text(q.number,
+                          style: pw.TextStyle(
+                              fontSize: 11,
+                              fontWeight: pw.FontWeight.bold,
+                              color: _navy)),
+                    ),
                   ),
                   pw.Expanded(
                     child: pw.Text(q.text,
@@ -910,11 +913,14 @@ class ReportPdfGenerator {
         children: [
           pw.SizedBox(
             width: 50,
-            child: pw.Text(q.number,
-                style: pw.TextStyle(
-                    fontSize: 11,
-                    fontWeight: pw.FontWeight.bold,
-                    color: _navy)),
+            child: pw.Anchor(
+              name: 'q_${q.id}',
+              child: pw.Text(q.number,
+                  style: pw.TextStyle(
+                      fontSize: 11,
+                      fontWeight: pw.FontWeight.bold,
+                      color: _navy)),
+            ),
           ),
           pw.SizedBox(width: 8),
           pw.Expanded(
@@ -1030,6 +1036,7 @@ class ReportPdfGenerator {
       for (final p in q.photos) {
         items.add(_EvidenceItem(
             questionId: q.number,
+            questionKey: q.id,
             questionText: q.text,
             url: p.url,
             caption: p.caption,
@@ -1042,6 +1049,7 @@ class ReportPdfGenerator {
           if (!already) {
             items.add(_EvidenceItem(
                 questionId: q.number,
+                questionKey: q.id,
                 questionText: q.text,
                 url: p.url,
                 caption: p.caption,
@@ -1123,10 +1131,6 @@ class ReportPdfGenerator {
 
     // Keep each tile well under one page height, otherwise Wrap can never
     // place it and the layout engine hangs.
-    String clip(String t, int n) => t.length > n ? '${t.substring(0, n)}...' : t;
-    final qText = clip(it.questionText, 220);
-    final qComment = clip(it.questionComment, 260);
-    final caption = clip(it.caption, 320);
 
     // Answer badge: YES green, NO red, N/A & N/V orange
     final k = (it.answerKey ?? '').toLowerCase();
@@ -1193,45 +1197,21 @@ class ReportPdfGenerator {
                             color: fg)),
                   ),
                   pw.SizedBox(width: 8),
-                  pw.Text('Q ${it.questionId}',
-                      style: pw.TextStyle(
-                          fontSize: 11,
-                          fontWeight: pw.FontWeight.bold,
-                          color: _navy)),
+                  // Question number links to the question inside this PDF
+                  pw.Link(
+                    destination: 'q_${it.questionKey}',
+                    child: pw.Text('Q ${it.questionId}',
+                        style: pw.TextStyle(
+                            fontSize: 11,
+                            fontWeight: pw.FontWeight.bold,
+                            decoration: pw.TextDecoration.underline,
+                            color: _navy)),
+                  ),
                 ]),
                 pw.SizedBox(height: 4),
-                pw.Text(qText,
+                // Full question text for this photo
+                pw.Text(it.questionText,
                     style: const pw.TextStyle(fontSize: 9.5, color: _text)),
-                if (qComment.isNotEmpty) ...[
-                  pw.SizedBox(height: 4),
-                  pw.Text('Inspector Comment: $qComment',
-                      style: const pw.TextStyle(fontSize: 9, color: _muted)),
-                ],
-                if (caption.isNotEmpty) ...[
-                  pw.SizedBox(height: 5),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(6),
-                    decoration: pw.BoxDecoration(
-                      color: _orangeSoft,
-                      borderRadius: pw.BorderRadius.circular(6),
-                      border: pw.Border.all(color: _orangeLine),
-                    ),
-                    child: pw.Column(
-                      crossAxisAlignment: pw.CrossAxisAlignment.start,
-                      children: [
-                        pw.Text('AI Analysis',
-                            style: pw.TextStyle(
-                                fontSize: 8,
-                                fontWeight: pw.FontWeight.bold,
-                                color: _orange)),
-                        pw.SizedBox(height: 2),
-                        pw.Text(caption,
-                            style: const pw.TextStyle(
-                                fontSize: 8.5, color: _text)),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -1455,8 +1435,10 @@ class _EvidenceItem {
   final String caption;
   final String? answerKey;
   final String questionComment;
+  final String questionKey;
   _EvidenceItem({
     required this.questionId,
+    this.questionKey = '',
     required this.questionText,
     required this.url,
     this.caption = '',

@@ -19,7 +19,10 @@ import 'ai_assistant_screen.dart';
 
 class InspectionScreen extends StatefulWidget {
   final Assignment assignment;
-  const InspectionScreen({super.key, required this.assignment});
+  /// When set, the screen opens at this question (used by the report's
+  /// evidence gallery links).
+  final String? initialQuestionId;
+  const InspectionScreen({super.key, required this.assignment, this.initialQuestionId});
 
   @override
   State<InspectionScreen> createState() => _InspectionScreenState();
@@ -243,6 +246,22 @@ class _InspectionScreenState extends State<InspectionScreen> {
       _expanded[_activeSectionId!] = true;
       if (widget.assignment.sections.first.questions.isNotEmpty) {
         _activeQuestionId = widget.assignment.sections.first.questions.first.id;
+      }
+    }
+    // Open directly at a question if requested (evidence gallery link).
+    // Must run AFTER the default-section code above, so it is not overwritten.
+    final iq = widget.initialQuestionId;
+    if (iq != null) {
+      for (final sec in widget.assignment.sections) {
+        final k = sec.questions.indexWhere((x) => x.id == iq);
+        if (k >= 0) {
+          _activeSectionId = sec.id;
+          _activeQuestionId = iq;
+          _expanded[sec.id] = true;
+          _initialIdx = k + 1; // index 0 is the section title
+          _scrollReq++;
+          break;
+        }
       }
     }
   }

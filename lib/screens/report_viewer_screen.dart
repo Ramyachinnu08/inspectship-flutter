@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../models/models.dart';
+import 'inspection_screen.dart';
 import '../utils/pdf_generator.dart';
 
 
@@ -47,6 +48,41 @@ Future<void> downloadReportWithProgress(
     }
   } finally {
     if (context.mounted) Navigator.of(context, rootNavigator: true).pop();
+  }
+}
+
+// Global keys so the evidence gallery can jump to a question in the report.
+final Map<String, GlobalKey> _questionAnchorKeys = {};
+GlobalKey _anchorFor(String qid) => _questionAnchorKeys.putIfAbsent(qid, () => GlobalKey());
+
+// One report is open at a time; module-level controller lets the gallery
+// scroll the report even though the screen is a StatelessWidget.
+final ScrollController _reportScrollCtrl = ScrollController();
+
+/// Scroll upward step by step until the question's anchor becomes visible
+/// (ListView mounts items lazily, so the anchor context may not exist yet).
+Future<void> _scrollToQuestion(String qid) async {
+  final key = _questionAnchorKeys[qid];
+  if (key == null || !_reportScrollCtrl.hasClients) return;
+  for (int i = 0; i < 200; i++) {
+    final ctx = key.currentContext;
+    if (ctx != null) {
+      // Items above mount lazily and shift the layout while we scroll, so a
+      // single ensureVisible lands offset. Repeat until the position settles.
+      for (int k = 0; k < 6; k++) {
+        final c = key.currentContext;
+        if (c == null) break;
+        await Scrollable.ensureVisible(c,
+            duration: const Duration(milliseconds: 120), alignment: 0.08);
+        await Future.delayed(const Duration(milliseconds: 60));
+      }
+      return;
+    }
+    final pos = _reportScrollCtrl.position;
+    if (pos.pixels <= pos.minScrollExtent + 1) return; // reached top
+    _reportScrollCtrl.jumpTo((pos.pixels - pos.viewportDimension * 1.5)
+        .clamp(pos.minScrollExtent, pos.maxScrollExtent));
+    await Future.delayed(const Duration(milliseconds: 40));
   }
 }
 
@@ -144,6 +180,7 @@ class ReportViewerScreen extends StatelessWidget {
             overflow: TextOverflow.ellipsis),
       ),
       body: ListView(
+        controller: _reportScrollCtrl,
         padding: const EdgeInsets.all(16),
         children: [
           _CoverPage(assignment: assignment),
@@ -718,6 +755,7 @@ class _AnswerBlock extends StatelessWidget {
                             SizedBox(
                               width: 56,
                               child: Text(q.number,
+                                  key: _anchorFor(q.id),
                                   style: const TextStyle(
                                       fontSize: 13,
                                       fontWeight: FontWeight.w700,
@@ -811,6 +849,7 @@ class _AnswerBlock extends StatelessWidget {
           SizedBox(
             width: 50,
             child: Text(q.number,
+                key: _anchorFor(q.id),
                 style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -936,7 +975,7 @@ class _EvidencePhotosPage extends StatelessWidget {
     for (final q in assignment.allQuestions) {
       // active photos
       for (final p in q.photos) {
-        items.add(_EvidenceItem(questionId: q.number, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment, answerKey: Question.keyFor(q.answer)));
+        items.add(_EvidenceItem(questionId: q.number, questionKey: q.id, questionText: q.text, url: p.url, caption: p.caption, questionComment: q.comment, answerKey: Question.keyFor(q.answer)));
       }
       // per-answer photos
       q.photosByAnswer.forEach((ansKey, list) {
@@ -944,7 +983,7 @@ class _EvidencePhotosPage extends StatelessWidget {
           // avoid duplicating the active ones
           final already = q.photos.any((ap) => ap.url == p.url);
           if (!already) {
-            items.add(_EvidenceItem(questionId: q.number, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey, questionComment: q.commentByAnswer[ansKey] ?? q.comment));
+            items.add(_EvidenceItem(questionId: q.number, questionKey: q.id, questionText: q.text, url: p.url, caption: p.caption, answerKey: ansKey, questionComment: q.commentByAnswer[ansKey] ?? q.comment));
           }
         }
       });
@@ -997,14 +1036,24 @@ class _EvidencePhotosPage extends StatelessWidget {
             Wrap(
               spacing: 16,
               runSpacing: 16,
-              children: items.map((it) => _photoTile(it)).toList(),
+              children: items.map((it) => _photoTile(context, it)).toList(),
             ),
         ],
       ),
     );
   }
 
-  Widget _photoTile(_EvidenceItem it) {
+  /// Opens the inspection screen at this exact question (answer + comment view).
+  void _openQuestion(BuildContext context, String questionKey) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => InspectionScreen(
+        assignment: assignment,
+        initialQuestionId: questionKey,
+      ),
+    ));
+  }
+
+  Widget _photoTile(BuildContext context, _EvidenceItem it) {
     Widget img;
     if (it.url.startsWith('data:image')) {
       img = Image.memory(base64Decode(it.url.split(',').last),
@@ -1028,9 +1077,13 @@ class _EvidencePhotosPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
-            child: img,
+          GestureDetector(
+            onTap: () => _openQuestion(context, it.questionKey),
+            child: ClipRRect(
+              borderRadius:
+              const BorderRadius.vertical(top: Radius.circular(6)),
+              child: img,
+            ),
           ),
           Padding(
             padding: const EdgeInsets.all(10),
@@ -1038,7 +1091,17 @@ class _EvidencePhotosPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    // Question number (left), tap scrolls to the question
+                    Builder(builder: (ctx) => InkWell(
+                      onTap: () => _openQuestion(ctx, it.questionKey),
+                      child: Text(it.questionId,
+                          style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF111827))),
+                    )),
                     // Answer badge: YES green, NO red, N/A / N/V orange
                     Builder(builder: (_) {
                       final k = (it.answerKey ?? '').toLowerCase();
@@ -1060,54 +1123,49 @@ class _EvidencePhotosPage extends StatelessWidget {
                                 color: fg)),
                       );
                     }),
-                    const SizedBox(width: 8),
-                    Text('Q ${it.questionId}',
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800, color: Color(0xFF1A2A5E))),
                   ],
                 ),
                 const SizedBox(height: 5),
-                // Full question text — no cutting
-                Text(it.questionText,
-                    style: const TextStyle(fontSize: 13, height: 1.4, color: Color(0xFF374151))),
-                if (it.questionComment.isNotEmpty) ...[
-                  const SizedBox(height: 5),
-                  Text('Inspector Comment: ${it.questionComment}',
-                      style: const TextStyle(
-                          fontSize: 12.5, color: Color(0xFF6B7280), height: 1.4)),
-                ],
-                if (it.caption.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF3EC),
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: const Color(0xFFFFD9BF)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: const [
-                            Icon(Icons.auto_awesome, size: 11, color: Color(0xFFFF6B00)),
-                            SizedBox(width: 4),
-                            Text('AI Analysis',
-                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Color(0xFFFF6B00))),
-                          ],
-                        ),
-                        const SizedBox(height: 3),
-                        Text(it.caption,
-                            style: const TextStyle(fontSize: 11, color: Color(0xFF374151))),
-                      ],
-                    ),
+                // Question text, shortened to two lines
+                Text(
+                  it.questionText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 12.5, height: 1.35, color: Color(0xFF374151)),
+                ),
+                const SizedBox(height: 5),
+                // Blue file link — tap to jump to the question in the report
+                InkWell(
+                  onTap: () => _openQuestion(context, it.questionKey),
+                  child: Text(
+                    _fileLabel(it),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12.5,
+                        color: Color(0xFF2563EB),
+                        decoration: TextDecoration.underline),
                   ),
-                ],
+                ),
               ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  /// "Q318_edf6a878...jpg" style label from the photo URL.
+  static String _fileLabel(_EvidenceItem it) {
+    final qTag = 'Q${it.questionId.replaceAll('.', '')}';
+    // Base64/in-report photos have no real file name
+    if (it.url.startsWith('data:')) return '${qTag}_photo.jpg';
+    var name = it.url.split('/').last.split('?').first;
+    if (name.isEmpty) name = 'photo.jpg';
+    return name.toLowerCase().startsWith(qTag.toLowerCase())
+        ? name
+        : '${qTag}_$name';
   }
 }
 
@@ -1118,7 +1176,9 @@ class _EvidenceItem {
   final String caption;
   final String? answerKey;
   final String questionComment;
+  final String questionKey;
   _EvidenceItem({
+    this.questionKey = '',
     required this.questionId,
     required this.questionText,
     required this.url,
