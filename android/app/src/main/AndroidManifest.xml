@@ -12,7 +12,7 @@
     </queries>
     <application
         android:largeHeap="true"
-        android:label="inspector_app"
+        android:label="RightKnots"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

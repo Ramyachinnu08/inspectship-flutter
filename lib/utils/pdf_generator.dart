@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:html' as html;
 import 'dart:typed_data';
 import 'package:flutter/material.dart' show Icons, IconData;
 import 'package:http/http.dart' as http;
@@ -7,6 +6,8 @@ import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import '../models/models.dart';
+// Browser download on web, system share dialog on Android/iOS/desktop:
+import 'pdf_save_io.dart' if (dart.library.html) 'pdf_save_web.dart';
 
 /// Builds the downloadable PDF so that it looks the same as the in-app
 /// report viewer (report_viewer_screen.dart), page by page:
@@ -142,7 +143,7 @@ class ReportPdfGenerator {
     await _report(92, 'Saving PDF file...');
     final bytes = await pdf.save();
     await _report(100, 'Done');
-    _downloadInBrowser(bytes,
+    await savePdfFile(bytes,
         '${assignment.vesselName.replaceAll(' ', '_')}_Inspection_Report.pdf');
   }
 
@@ -151,18 +152,6 @@ class ReportPdfGenerator {
     _progress = null;
     final pdf = await _buildDocument(assignment);
     return pdf.save();
-  }
-
-  /// Creates a Blob URL and triggers download via a temporary anchor element.
-  static void _downloadInBrowser(List<int> bytes, String filename) {
-    final base64 = base64Encode(bytes);
-    final anchor = html.AnchorElement(
-        href: 'data:application/pdf;base64,$base64')
-      ..setAttribute('download', filename)
-      ..style.display = 'none';
-    html.document.body!.children.add(anchor);
-    anchor.click();
-    html.document.body!.children.remove(anchor);
   }
 
   // ════════════════════════ DOCUMENT ════════════════════════
